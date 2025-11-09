@@ -28,4 +28,4 @@ commands = [
 ]
 
 for command in commands:
-    subprocess.run(command, check=True)
+    subprocess.run(command)
