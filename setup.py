@@ -33,12 +33,25 @@ import urllib.request
 import importlib.metadata
 
 from pathlib import Path
-from packaging import version
 
 
 #################### SECTION BREAK ####################
 
 ##### UTILITY FUNCTIONS #####
+
+def parse_version(version_string: str) -> tuple:
+    """
+    Parses a version string into a tuple of integers for means of comparison.
+    
+    Parameters:
+        • version_string (str): The version string.
+        
+    Returns:
+        • tuple: A tuple of integers representing the version components.
+    
+    """
+    return tuple(int(component) for component in version_string.split(".") if component.isdigit())
+
 
 def setup_package(package_string: str) -> None:
     """
@@ -56,7 +69,7 @@ def setup_package(package_string: str) -> None:
         try:
             installed_version = importlib.metadata.version(package_name)
 
-            if version.parse(installed_version) >= version.parse(minimum_version): 
+            if parse_version(installed_version) >= parse_version(minimum_version): 
                 print(f"Package '{package_name}' is already installed at version '{installed_version}'; no action required.\n")
                 return
             
@@ -71,7 +84,7 @@ def setup_package(package_string: str) -> None:
             subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", package_name], check=True)
             installed_version = importlib.metadata.version(package_name)
 
-            if version.parse(installed_version) >= version.parse(minimum_version):
+            if parse_version(installed_version) >= parse_version(minimum_version):
                 print(f"Successfully installed package '{package_name}' at version '{installed_version}'.\n")
                 return
 
@@ -126,9 +139,11 @@ def safe_request(url, timeout=10):
     """
 
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as response: return response.read()
+        with urllib.request.urlopen(url, timeout=timeout) as response:
+            return response.read()
 
-    except Exception: return None
+    except Exception:
+        return None
 
 
 #################### SECTION BREAK ####################
@@ -147,19 +162,14 @@ if __name__ == "__main__":
     version_file = root_directory / "version.json"
 
     if version_file.exists():
-        try: 
-            local_version = json.loads(version_file.read_text())["version"]
-
-        except Exception: local_version = None
-
-    if local_version:
+        local_version = json.loads(version_file.read_text())["version"]
         print(f"Successfully found evidence of a previous installation of the application at version '{local_version}'.\n")
 
     else:
+        local_version = None
         print("Failed to find evidence of a previous installation of the application.\n")
 
     print("Attempting to fetch the latest release information from GitHub...")
-
     data_bytes = safe_request("https://api.github.com/repos/iRNHO/damage-calculator/releases/latest")
 
     if not data_bytes:
@@ -209,7 +219,7 @@ if __name__ == "__main__":
                         else:
                             raise Exception(f"Failed to fetch file '{folder}/{item["name"]}' from GitHub.")
             
-            print("Successfully downloaded core application files.\n")
+            print("Successfully installed all core application files for the latest version.\n")
             requirements_file = root_directory / "requirements.txt"
 
             if requirements_file.exists():
@@ -217,9 +227,8 @@ if __name__ == "__main__":
                     if line.strip() and not line.startswith("#"):
                         setup_package(line.strip())
 
-            print("Successfully ensured all required packages are installed at the required versions.\n")
             version_file.write_text(json.dumps({"version": latest_version}))
-            print("Successfully installed the latest version; attempting to launch the application..." if not local_version else "Successfully updated the previous installation to the latest version; attempting to launch the application...")
+            print("Successfully completed the setup process for the latest version; attempting to launch the application...")
             subprocess.run([sys.executable, str(root_directory / "main.py")], check=True)
             exit(0)
 
