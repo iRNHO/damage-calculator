@@ -10,7 +10,7 @@ This script is designed to be the distributable component of the calculator, and
 """
 
 __author__ = "iRNHO"
-__contact__ = "Message iRNHO on XBOX or irnho on discord regarding any questions, feedback, bug-reporting etc."
+__contact__ = "Message 'iRNHO' on XBOX or 'irnho' on discord regarding any questions, feedback, bug-reporting etc."
 __discord__ = "https://discord.gg/--------"
 
 
