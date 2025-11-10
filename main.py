@@ -18,6 +18,7 @@ __discord__ = "https://discord.gg/--------"
 
 ##### IMPORT STATEMENTS #####
 
+import json
 import pandas as pd
 import customtkinter as ctk
 
@@ -32,10 +33,12 @@ from platformdirs import user_data_dir
 
 root_directory = Path(user_data_dir("Damage Calculator", "iRNHO"))
 assets_directory = root_directory / "assets"
+builds_directory = root_directory / "builds"
 data_directory = root_directory / "data"
 
 #dev
 assets_directory = Path(r"C:\Users\smorg\Documents\damage-calculator\assets")
+builds_directory = Path(r"C:\Users\smorg\Documents\damage-calculator\builds")
 data_directory = Path(r"C:\Users\smorg\Documents\damage-calculator\data")
 #dev
 
@@ -101,8 +104,13 @@ class DamageCalculatorApp(ctk.CTk):
         # Create container frame for main content
         self.content_frame = ctk.CTkFrame(self, corner_radius=0)
         self.content_frame.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
-        self.content_frame.grid_columnconfigure(0, weight=1)
+        self.content_frame.grid_columnconfigure(1, weight=1)
         self.content_frame.grid_rowconfigure(0, weight=1)
+        
+        # Create sidebar for Build Creator (initially hidden)
+        self.sidebar_visible = False
+        self.sidebar_frame = None
+        self.overlay_frame = None
         
         # Create the three main windows as frames
         self.build_creator_frame = ctk.CTkFrame(self.content_frame)
@@ -120,13 +128,31 @@ class DamageCalculatorApp(ctk.CTk):
     
     def setup_build_creator(self):
         """Setup the Build Creator window"""
-        # Make the frame scrollable
+        # Configure grid layout
         self.build_creator_frame.grid_columnconfigure(0, weight=1)
-        self.build_creator_frame.grid_rowconfigure(0, weight=1)
+        self.build_creator_frame.grid_rowconfigure(1, weight=1)
+        
+        # Create top bar for toggle button
+        top_bar = ctk.CTkFrame(self.build_creator_frame, height=60, corner_radius=0)
+        top_bar.grid(row=0, column=0, sticky="ew", padx=0, pady=0)
+        top_bar.grid_propagate(False)
+        
+        # Create toggle button for sidebar (burger menu icon)
+        toggle_btn = ctk.CTkButton(
+            top_bar,
+            text="☰",
+            command=self.toggle_sidebar,
+            width=40,
+            height=40,
+            font=ctk.CTkFont(size=20),
+            fg_color="transparent",
+            hover_color="gray30"
+        )
+        toggle_btn.pack(side="left", padx=10, pady=10)
         
         # Create scrollable frame
         scrollable_frame = ctk.CTkScrollableFrame(self.build_creator_frame)
-        scrollable_frame.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        scrollable_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
         scrollable_frame.grid_columnconfigure((0, 1, 2), weight=1)
         
         # Define gear pieces with their icons
@@ -1117,7 +1143,9 @@ class DamageCalculatorApp(ctk.CTk):
             'name': skill_name,
             'frame': dropdown_frame,
             'dropdowns': {},
-            'variables': {}
+            'variables': {},
+            'expertise_var': None,
+            'expertise_label': None
         }
         
         # Class dropdown - always shown
@@ -1134,6 +1162,24 @@ class DamageCalculatorApp(ctk.CTk):
         
         skill_data['variables']['class'] = class_var
         skill_data['dropdowns']['class'] = class_dropdown
+        
+        # Add expertise slider at the bottom
+        expertise_var = ctk.IntVar(value=30)
+        expertise_label = ctk.CTkLabel(dropdown_frame, text=f"Expertise: 30")
+        expertise_label.grid(row=100, column=0, padx=5, pady=(10, 2), sticky="w")
+        
+        expertise_slider = ctk.CTkSlider(
+            dropdown_frame,
+            from_=0,
+            to=30,
+            number_of_steps=30,
+            variable=expertise_var,
+            command=lambda value: expertise_label.configure(text=f"Expertise: {int(value)}")
+        )
+        expertise_slider.grid(row=101, column=0, padx=5, pady=(0, 5), sticky="ew")
+        
+        skill_data['expertise_var'] = expertise_var
+        skill_data['expertise_label'] = expertise_label
         
         # Store skill_data for later access
         if not hasattr(self, 'skill_sections'):
@@ -1478,7 +1524,9 @@ class DamageCalculatorApp(ctk.CTk):
             'name': weapon_name,
             'frame': dropdown_frame,
             'dropdowns': {},
-            'variables': {}
+            'variables': {},
+            'expertise_var': None,
+            'expertise_label': None
         }
         
         # Class dropdown - always shown
@@ -1495,6 +1543,24 @@ class DamageCalculatorApp(ctk.CTk):
         
         weapon_data['variables']['class'] = class_var
         weapon_data['dropdowns']['class'] = class_dropdown
+        
+        # Add expertise slider at the bottom
+        expertise_var = ctk.IntVar(value=30)
+        expertise_label = ctk.CTkLabel(dropdown_frame, text=f"Expertise: 30")
+        expertise_label.grid(row=100, column=0, padx=5, pady=(10, 2), sticky="w")
+        
+        expertise_slider = ctk.CTkSlider(
+            dropdown_frame,
+            from_=0,
+            to=30,
+            number_of_steps=30,
+            variable=expertise_var,
+            command=lambda value: expertise_label.configure(text=f"Expertise: {int(value)}")
+        )
+        expertise_slider.grid(row=101, column=0, padx=5, pady=(0, 5), sticky="ew")
+        
+        weapon_data['expertise_var'] = expertise_var
+        weapon_data['expertise_label'] = expertise_label
         
         # Store weapon_data for later access
         if not hasattr(self, 'weapon_data'):
@@ -2097,7 +2163,7 @@ class DamageCalculatorApp(ctk.CTk):
         """Show the Build Creator window"""
         if self.current_frame:
             self.current_frame.grid_forget()
-        self.build_creator_frame.grid(row=0, column=0, sticky="nsew")
+        self.build_creator_frame.grid(row=0, column=1, sticky="nsew")
         self.current_frame = self.build_creator_frame
         
         # Update button states
@@ -2105,10 +2171,806 @@ class DamageCalculatorApp(ctk.CTk):
         self.build_tuning_btn.configure(state="normal")
         self.damage_output_btn.configure(state="normal")
     
+    def toggle_sidebar(self):
+        """Toggle the sidebar visibility"""
+        if self.sidebar_visible:
+            # Hide sidebar
+            if self.sidebar_frame:
+                self.sidebar_frame.place_forget()
+            self.sidebar_visible = False
+            # Unbind Escape key
+            self.unbind("<Escape>")
+        else:
+            # Destroy old sidebar if it exists to ensure width updates
+            if self.sidebar_frame:
+                self.sidebar_frame.destroy()
+                self.sidebar_frame = None
+            
+            # Create and show sidebar
+            self.create_sidebar()
+            self.sidebar_frame.place(x=0, y=0, relheight=1.0)
+            self.sidebar_visible = True
+            # Bind Escape key to close sidebar when it's open
+            self.bind("<Escape>", lambda e: self.toggle_sidebar())
+    
+    def create_sidebar(self):
+        """Create the sidebar menu"""
+        self.sidebar_frame = ctk.CTkFrame(self.build_creator_frame, width=600, corner_radius=0)
+        self.sidebar_frame.pack_propagate(False)
+        
+        # Close button in top right corner
+        close_btn = ctk.CTkButton(
+            self.sidebar_frame,
+            text="✕",
+            command=self.toggle_sidebar,
+            width=30,
+            height=30,
+            font=ctk.CTkFont(size=16),
+            fg_color="transparent",
+            hover_color="gray30"
+        )
+        close_btn.place(x=560, y=10)
+        
+        # Create scrollable frame for build list (leave space at top for close button)
+        builds_scroll = ctk.CTkScrollableFrame(self.sidebar_frame)
+        builds_scroll.pack(fill="both", expand=True, padx=10, pady=(50, 10))
+        
+        # Load and display builds
+        self.refresh_build_list(builds_scroll)
+    
+    def refresh_build_list(self, container):
+        """Refresh the list of builds in the sidebar"""
+        # Clear existing widgets
+        for widget in container.winfo_children():
+            widget.destroy()
+        
+        # Load all builds from the builds directory
+        builds = self.get_all_builds()
+        
+        # Display each build
+        for build in builds:
+            self.create_build_entry(container, build)
+        
+        # Add the "Save Build" button at the bottom
+        new_build_frame = ctk.CTkFrame(container, height=80)
+        new_build_frame.pack(fill="x", padx=5, pady=10)
+        
+        new_build_btn = ctk.CTkButton(
+            new_build_frame,
+            text="+ Save Build",
+            command=self.create_new_build,
+            height=60,
+            font=ctk.CTkFont(size=16, weight="bold")
+        )
+        new_build_btn.pack(fill="both", expand=True, padx=10, pady=10)
+    
+    def get_all_builds(self):
+        """Get all saved builds from the builds directory"""
+        builds = []
+        
+        # Ensure builds directory exists
+        builds_directory.mkdir(parents=True, exist_ok=True)
+        
+        # Load all JSON files
+        for build_file in sorted(builds_directory.glob("*.json")):
+            try:
+                with open(build_file, 'r') as f:
+                    build_data = json.load(f)
+                    builds.append(build_data)
+            except Exception as e:
+                pass
+        
+        # Sort by build name
+        builds.sort(key=lambda x: x.get("Build Name", "").lower())
+        return builds
+    
+    def create_build_entry(self, container, build_data):
+        """Create a single build entry with Load, Overwrite, Delete buttons"""
+        build_frame = ctk.CTkFrame(container)
+        build_frame.pack(fill="x", padx=5, pady=5)
+        
+        # Build name label
+        name_label = ctk.CTkLabel(
+            build_frame,
+            text=build_data.get("Build Name", "Unnamed Build"),
+            font=ctk.CTkFont(size=14, weight="bold"),
+            anchor="w"
+        )
+        name_label.pack(side="left", padx=10, pady=10, fill="x", expand=True)
+        
+        # Button container
+        btn_container = ctk.CTkFrame(build_frame, fg_color="transparent")
+        btn_container.pack(side="right", padx=5, pady=5)
+        
+        # Load button with image
+        try:
+            from PIL import Image
+            load_icon_path = assets_directory / "load.png"
+            if load_icon_path.exists():
+                load_image = ctk.CTkImage(
+                    light_image=Image.open(load_icon_path),
+                    dark_image=Image.open(load_icon_path),
+                    size=(30, 30)
+                )
+                load_btn = ctk.CTkButton(
+                    btn_container,
+                    text="",
+                    image=load_image,
+                    command=lambda: self.load_build(build_data),
+                    width=40,
+                    height=40,
+                    fg_color="transparent",
+                    hover_color="gray20",
+                    border_width=2,
+                    border_color="gray30"
+                )
+            else:
+                load_btn = ctk.CTkButton(
+                    btn_container,
+                    text="Load",
+                    command=lambda: self.load_build(build_data),
+                    width=70,
+                    height=30,
+                    font=ctk.CTkFont(size=12)
+                )
+        except:
+            load_btn = ctk.CTkButton(
+                btn_container,
+                text="Load",
+                command=lambda: self.load_build(build_data),
+                width=70,
+                height=30,
+                font=ctk.CTkFont(size=12)
+            )
+        load_btn.pack(side="left", padx=2)
+        
+        # Rename button with image
+        try:
+            rename_icon_path = assets_directory / "rename.png"
+            if rename_icon_path.exists():
+                rename_image = ctk.CTkImage(
+                    light_image=Image.open(rename_icon_path),
+                    dark_image=Image.open(rename_icon_path),
+                    size=(30, 30)
+                )
+                rename_btn = ctk.CTkButton(
+                    btn_container,
+                    text="",
+                    image=rename_image,
+                    command=lambda: self.rename_build(build_data),
+                    width=40,
+                    height=40,
+                    fg_color="transparent",
+                    hover_color="gray20",
+                    border_width=2,
+                    border_color="gray30"
+                )
+            else:
+                rename_btn = ctk.CTkButton(
+                    btn_container,
+                    text="Rename",
+                    command=lambda: self.rename_build(build_data),
+                    width=70,
+                    height=30,
+                    font=ctk.CTkFont(size=12)
+                )
+        except:
+            rename_btn = ctk.CTkButton(
+                btn_container,
+                text="Rename",
+                command=lambda: self.rename_build(build_data),
+                width=70,
+                height=30,
+                font=ctk.CTkFont(size=12)
+            )
+        rename_btn.pack(side="left", padx=2)
+        
+        # Overwrite button with image
+        try:
+            overwrite_icon_path = assets_directory / "overwrite.png"
+            if overwrite_icon_path.exists():
+                overwrite_image = ctk.CTkImage(
+                    light_image=Image.open(overwrite_icon_path),
+                    dark_image=Image.open(overwrite_icon_path),
+                    size=(30, 30)
+                )
+                overwrite_btn = ctk.CTkButton(
+                    btn_container,
+                    text="",
+                    image=overwrite_image,
+                    command=lambda: self.overwrite_build(build_data),
+                    width=40,
+                    height=40,
+                    fg_color="transparent",
+                    hover_color="gray20",
+                    border_width=2,
+                    border_color="gray30"
+                )
+            else:
+                overwrite_btn = ctk.CTkButton(
+                    btn_container,
+                    text="Overwrite",
+                    command=lambda: self.overwrite_build(build_data),
+                    width=80,
+                    height=30,
+                    font=ctk.CTkFont(size=12),
+                    fg_color="orange",
+                    hover_color="darkorange"
+                )
+        except:
+            overwrite_btn = ctk.CTkButton(
+                btn_container,
+                text="Overwrite",
+                command=lambda: self.overwrite_build(build_data),
+                width=80,
+                height=30,
+                font=ctk.CTkFont(size=12),
+                fg_color="orange",
+                hover_color="darkorange"
+            )
+        overwrite_btn.pack(side="left", padx=2)
+        
+        # Delete button with image
+        try:
+            delete_icon_path = assets_directory / "delete.png"
+            if delete_icon_path.exists():
+                delete_image = ctk.CTkImage(
+                    light_image=Image.open(delete_icon_path),
+                    dark_image=Image.open(delete_icon_path),
+                    size=(30, 30)
+                )
+                delete_btn = ctk.CTkButton(
+                    btn_container,
+                    text="",
+                    image=delete_image,
+                    command=lambda: self.delete_build(build_data),
+                    width=40,
+                    height=40,
+                    fg_color="transparent",
+                    hover_color="gray20",
+                    border_width=2,
+                    border_color="gray30"
+                )
+            else:
+                delete_btn = ctk.CTkButton(
+                    btn_container,
+                    text="Delete",
+                    command=lambda: self.delete_build(build_data),
+                    width=70,
+                    height=30,
+                    font=ctk.CTkFont(size=12),
+                    fg_color="red",
+                    hover_color="darkred"
+                )
+        except:
+            delete_btn = ctk.CTkButton(
+                btn_container,
+                text="Delete",
+                command=lambda: self.delete_build(build_data),
+                width=70,
+                height=30,
+                font=ctk.CTkFont(size=12),
+                fg_color="red",
+                hover_color="darkred"
+            )
+        delete_btn.pack(side="left", padx=2)
+    
+    def create_new_build(self):
+        """Create a new build by saving current selections"""
+        # Temporarily unbind Escape from sidebar
+        self.unbind("<Escape>")
+        
+        # Create dialog frame floating in center (no overlay background)
+        dialog_frame = ctk.CTkFrame(self.build_creator_frame, width=400, height=200, corner_radius=10, border_width=2, border_color="gray30")
+        dialog_frame.place(relx=0.5, rely=0.5, anchor="center")
+        dialog_frame.pack_propagate(False)
+        
+        # Function to close dialog and rebind escape
+        def close_dialog():
+            dialog_frame.destroy()
+            # Rebind Escape to sidebar if it's open
+            if self.sidebar_visible:
+                self.bind("<Escape>", lambda e: self.toggle_sidebar())
+        
+        # Close button in top right corner
+        close_btn = ctk.CTkButton(
+            dialog_frame,
+            text="✕",
+            command=close_dialog,
+            width=30,
+            height=30,
+            font=ctk.CTkFont(size=16),
+            fg_color="transparent",
+            hover_color="gray30"
+        )
+        close_btn.place(x=360, y=10)
+        
+        # Title
+        title_label = ctk.CTkLabel(
+            dialog_frame, 
+            text="New Build", 
+            font=ctk.CTkFont(size=18, weight="bold")
+        )
+        title_label.pack(pady=(20, 10))
+        
+        # Label
+        label = ctk.CTkLabel(dialog_frame, text="Enter build name:", font=ctk.CTkFont(size=14))
+        label.pack(pady=(10, 5))
+        
+        # Entry field
+        entry = ctk.CTkEntry(dialog_frame, width=300, height=35)
+        entry.pack(pady=5)
+        
+        # Character counter label
+        char_counter = ctk.CTkLabel(dialog_frame, text="0/20", font=ctk.CTkFont(size=12), text_color="gray60")
+        char_counter.pack(pady=(0, 10))
+        
+        # Function to update character counter and limit input
+        def update_counter(*args):
+            text = entry.get()
+            # Limit to 20 characters
+            if len(text) > 20:
+                entry.delete(20, "end")
+                text = entry.get()
+            # Update counter display
+            count = len(text)
+            char_counter.configure(text=f"{count}/20")
+            # Change color based on length
+            if count >= 20:
+                char_counter.configure(text_color="orange")
+            else:
+                char_counter.configure(text_color="gray60")
+        
+        # Bind to entry field changes
+        entry.bind("<KeyRelease>", update_counter)
+        
+        entry.focus()
+        
+        # Store the result
+        build_name = None
+        
+        def on_ok():
+            nonlocal build_name
+            build_name = entry.get()
+            close_dialog()
+        
+        # Bind Enter key to OK and Escape to Cancel
+        entry.bind("<Return>", lambda e: on_ok())
+        entry.bind("<Escape>", lambda e: close_dialog())
+        dialog_frame.bind("<Escape>", lambda e: close_dialog())
+        
+        # Wait for dialog to be destroyed
+        self.wait_window(dialog_frame)
+        
+        if build_name:
+            # Get current build state
+            build_data = self.get_current_build_state()
+            
+            # Check if a build with this name already exists and add number suffix if needed
+            original_name = build_name
+            counter = 1
+            while True:
+                test_filename = self.sanitize_filename(build_name) + ".json"
+                test_path = builds_directory / test_filename
+                if not test_path.exists():
+                    break
+                counter += 1
+                build_name = f"{original_name} ({counter})"
+            
+            build_data["Build Name"] = build_name
+            
+            # Save to file (filename derived from build name)
+            file_path = builds_directory / (self.sanitize_filename(build_name) + ".json")
+            self.save_build_to_file(build_data, file_path)
+            
+            # Refresh the sidebar
+            self.toggle_sidebar()  # Close
+            self.toggle_sidebar()  # Reopen to refresh
+    
+    def get_current_build_state(self):
+        """Get the current state of all selections as a dictionary"""
+        build_data = {}
+        
+        # Specialization
+        if hasattr(self, 'specialization_var'):
+            spec_val = self.specialization_var.get()
+            build_data["Specialization"] = None if spec_val == "Select Specialization" else spec_val
+        
+        # Weapon - complete structure
+        weapon_dict = {
+            "Class": None,
+            "Type": None,
+            "Name": None,
+            "Core 1": None,
+            "Core 2": None,
+            "Attribute": None,
+            "Mod 1": None,
+            "Mod 2": None,
+            "Mod 3": None,
+            "Mod 4": None,
+            "Talent 1": None,
+            "Talent 2": None,
+            "Expertise": 30
+        }
+        
+        if hasattr(self, 'weapon_data'):
+            for key, var in self.weapon_data.get('variables', {}).items():
+                display_key = key.replace('_', ' ').title()
+                value = var.get()
+                # Convert "Select X" values to null
+                if value and not value.startswith("Select"):
+                    weapon_dict[display_key] = value
+            
+            # Add expertise
+            if self.weapon_data.get('expertise_var'):
+                weapon_dict["Expertise"] = self.weapon_data['expertise_var'].get()
+        
+        build_data["Weapon"] = weapon_dict
+        
+        # Skills - complete structure for each
+        for skill_name in ["Skill Left", "Skill Right"]:
+            skill_dict = {
+                "Class": None,
+                "Name": None,
+                "Mod 1": None,
+                "Mod 2": None,
+                "Mod 3": None,
+                "Expertise": 30
+            }
+            
+            if hasattr(self, 'skill_sections') and skill_name in self.skill_sections:
+                skill_data = self.skill_sections[skill_name]
+                for key, var in skill_data.get('variables', {}).items():
+                    display_key = key.replace('_', ' ').title()
+                    value = var.get()
+                    # Convert "Select X" values to null
+                    if value and not value.startswith("Select"):
+                        skill_dict[display_key] = value
+                
+                # Add expertise
+                if skill_data.get('expertise_var'):
+                    skill_dict["Expertise"] = skill_data['expertise_var'].get()
+            
+            build_data[skill_name] = skill_dict
+        
+        # Gear - complete structure for each piece
+        for gear_name in ["Mask", "Body Armor", "Holster", "Backpack", "Gloves", "Kneepads"]:
+            gear_dict = {
+                "Type": None,
+                "Name": None,
+                "Core 1": None,
+                "Core 2": None,
+                "Core 3": None,
+                "Attr 1": None,
+                "Attr 2": None,
+                "Attr 3": None,
+                "Mod 1": None,
+                "Mod 2": None,
+                "Talent 1": None,
+                "Talent 2": None
+            }
+            
+            if hasattr(self, 'gear_sections') and gear_name in self.gear_sections:
+                gear_data = self.gear_sections[gear_name]
+                for key, var in gear_data.get('variables', {}).items():
+                    display_key = key.replace('_', ' ').title()
+                    value = var.get()
+                    # Convert "Select X" values to null
+                    if value and not value.startswith("Select"):
+                        gear_dict[display_key] = value
+            
+            build_data[gear_name] = gear_dict
+        
+        return build_data
+    
+    def sanitize_filename(self, name):
+        """Convert build name to valid filename, preserving original case and spaces"""
+        # Remove invalid characters for Windows filenames
+        invalid_chars = '<>:"/\\|?*'
+        sanitized = name
+        for char in invalid_chars:
+            sanitized = sanitized.replace(char, '')
+        return sanitized.strip()
+    
+    def save_build_to_file(self, build_data, file_path):
+        """Save build data to JSON file"""
+        try:
+            builds_directory.mkdir(parents=True, exist_ok=True)
+            
+            with open(file_path, 'w') as f:
+                json.dump(build_data, f, indent=4)
+        except Exception as e:
+            pass
+    
+    def load_build(self, build_data):
+        """Load a build into the current environment"""
+        try:
+            # Load specialization first (affects weapon and skill options)
+            if "Specialization" in build_data and hasattr(self, 'specialization_var'):
+                spec_val = build_data["Specialization"]
+                if spec_val is not None:
+                    self.specialization_var.set(spec_val)
+                    # Trigger update
+                    if hasattr(self, 'specialization_dropdown'):
+                        self.update_specialization(self.specialization_var, self.specialization_dropdown)
+            
+            # Load weapon - set values in cascade order
+            if "Weapon" in build_data and hasattr(self, 'weapon_data'):
+                weapon_dict = build_data["Weapon"]
+                
+                # Set class first and trigger update (creates type dropdown)
+                if "Class" in weapon_dict and weapon_dict["Class"] is not None and 'class' in self.weapon_data.get('variables', {}):
+                    self.weapon_data['variables']['class'].set(weapon_dict["Class"])
+                    self.update_weapon("Weapon", self.weapon_data)
+                    self.after(50)  # Allow GUI to update
+                
+                # Set type if it exists and trigger update (creates name dropdown)
+                if "Type" in weapon_dict and weapon_dict["Type"] is not None and 'type' in self.weapon_data.get('variables', {}):
+                    self.weapon_data['variables']['type'].set(weapon_dict["Type"])
+                    self.update_weapon_name("Weapon", self.weapon_data)
+                    self.after(50)
+                
+                # Set name and trigger update (creates attributes)
+                if "Name" in weapon_dict and weapon_dict["Name"] is not None and 'name' in self.weapon_data.get('variables', {}):
+                    self.weapon_data['variables']['name'].set(weapon_dict["Name"])
+                    self.update_weapon_attributes("Weapon", self.weapon_data, preserve_selections=False)
+                    self.after(50)
+                
+                # Now set remaining attributes (only if not null)
+                for key, value in weapon_dict.items():
+                    if value is not None:  # Skip null values
+                        var_key = key.lower().replace(' ', '_')
+                        if var_key in self.weapon_data.get('variables', {}) and key not in ["Class", "Type", "Name"]:
+                            self.weapon_data['variables'][var_key].set(value)
+                
+                # Load expertise (default to 30 if null)
+                if "Expertise" in weapon_dict and self.weapon_data.get('expertise_var'):
+                    expertise_val = weapon_dict["Expertise"]
+                    self.weapon_data['expertise_var'].set(expertise_val if expertise_val is not None else 30)
+            
+            # Load skills - set values in cascade order
+            if hasattr(self, 'skill_sections'):
+                for skill_name in ["Skill Left", "Skill Right"]:
+                    if skill_name in build_data and skill_name in self.skill_sections:
+                        skill_dict = build_data[skill_name]
+                        skill_data = self.skill_sections[skill_name]
+                        
+                        # Set class first and trigger update (creates name dropdown)
+                        if "Class" in skill_dict and skill_dict["Class"] is not None and 'class' in skill_data.get('variables', {}):
+                            skill_data['variables']['class'].set(skill_dict["Class"])
+                            self.update_skill(skill_name, skill_data)
+                            self.after(50)
+                        
+                        # Set name and trigger update (creates mod dropdowns)
+                        if "Name" in skill_dict and skill_dict["Name"] is not None and 'name' in skill_data.get('variables', {}):
+                            skill_data['variables']['name'].set(skill_dict["Name"])
+                            self.update_skill_mods(skill_name, skill_data, preserve_selections=False)
+                            self.after(50)
+                        
+                        # Now set remaining attributes (mods) - only if not null
+                        for key, value in skill_dict.items():
+                            if value is not None:  # Skip null values
+                                var_key = key.lower().replace(' ', '_')
+                                if var_key in skill_data.get('variables', {}) and key not in ["Class", "Name"]:
+                                    skill_data['variables'][var_key].set(value)
+                        
+                        # Load expertise (default to 30 if null)
+                        if "Expertise" in skill_dict and skill_data.get('expertise_var'):
+                            expertise_val = skill_dict["Expertise"]
+                            skill_data['expertise_var'].set(expertise_val if expertise_val is not None else 30)
+            
+            # Load gear - set values in cascade order
+            if hasattr(self, 'gear_sections'):
+                for gear_name in ["Mask", "Body Armor", "Holster", "Backpack", "Gloves", "Kneepads"]:
+                    if gear_name in build_data and gear_name in self.gear_sections:
+                        gear_dict = build_data[gear_name]
+                        gear_data = self.gear_sections[gear_name]
+                        
+                        # Set type first and trigger update (creates name dropdown)
+                        if "Type" in gear_dict and gear_dict["Type"] is not None and 'type' in gear_data.get('variables', {}):
+                            gear_data['variables']['type'].set(gear_dict["Type"])
+                            self.update_gear(gear_name, gear_data)
+                            self.after(50)
+                        
+                        # Set name and trigger update (creates attributes)
+                        if "Name" in gear_dict and gear_dict["Name"] is not None and 'name' in gear_data.get('variables', {}):
+                            gear_data['variables']['name'].set(gear_dict["Name"])
+                            self.update_gear_attributes(gear_name, gear_data, preserve_selections=False)
+                            self.after(50)
+                        
+                        # Now set remaining attributes (only if not null)
+                        for key, value in gear_dict.items():
+                            if value is not None:  # Skip null values
+                                var_key = key.lower().replace(' ', '_')
+                                if var_key in gear_data.get('variables', {}) and key not in ["Type", "Name"]:
+                                    gear_data['variables'][var_key].set(value)
+            
+            self.toggle_sidebar()  # Close sidebar after loading
+            
+        except Exception as e:
+            pass
+    
+    def overwrite_build(self, build_data):
+        """Overwrite an existing build with current selections"""
+        try:
+            # Get current state
+            new_data = self.get_current_build_state()
+            
+            # Keep the same build name
+            new_data["Build Name"] = build_data["Build Name"]
+            
+            # Derive filename from build name
+            file_path = builds_directory / (self.sanitize_filename(build_data["Build Name"]) + ".json")
+            
+            # Save to file
+            self.save_build_to_file(new_data, file_path)
+            
+            # Refresh the sidebar
+            self.toggle_sidebar()  # Close
+            self.toggle_sidebar()  # Reopen to refresh
+            
+        except Exception as e:
+            pass
+    
+    def delete_build(self, build_data):
+        """Delete a build file"""
+        try:
+            # Derive filename from build name
+            file_path = builds_directory / (self.sanitize_filename(build_data["Build Name"]) + ".json")
+            
+            if file_path.exists():
+                file_path.unlink()
+                
+                # Refresh the sidebar
+                self.toggle_sidebar()  # Close
+                self.toggle_sidebar()  # Reopen to refresh
+        except Exception as e:
+            pass
+    
+    def rename_build(self, build_data):
+        """Rename a build"""
+        # Temporarily unbind Escape from sidebar
+        self.unbind("<Escape>")
+        
+        # Create dialog frame floating in center
+        dialog_frame = ctk.CTkFrame(self.build_creator_frame, width=400, height=200, corner_radius=10, border_width=2, border_color="gray30")
+        dialog_frame.place(relx=0.5, rely=0.5, anchor="center")
+        dialog_frame.pack_propagate(False)
+        
+        # Function to close dialog and rebind escape
+        def close_dialog():
+            dialog_frame.destroy()
+            # Rebind Escape to sidebar if it's open
+            if self.sidebar_visible:
+                self.bind("<Escape>", lambda e: self.toggle_sidebar())
+        
+        # Close button in top right corner
+        close_btn = ctk.CTkButton(
+            dialog_frame,
+            text="✕",
+            command=close_dialog,
+            width=30,
+            height=30,
+            font=ctk.CTkFont(size=16),
+            fg_color="transparent",
+            hover_color="gray30"
+        )
+        close_btn.place(x=360, y=10)
+        
+        # Title
+        title_label = ctk.CTkLabel(
+            dialog_frame, 
+            text="Rename Build", 
+            font=ctk.CTkFont(size=18, weight="bold")
+        )
+        title_label.pack(pady=(20, 10))
+        
+        # Label
+        label = ctk.CTkLabel(dialog_frame, text="Enter new build name:", font=ctk.CTkFont(size=14))
+        label.pack(pady=(10, 5))
+        
+        # Entry field with current name pre-filled
+        entry = ctk.CTkEntry(dialog_frame, width=300, height=35)
+        entry.pack(pady=5)
+        entry.insert(0, build_data["Build Name"])
+        entry.select_range(0, "end")  # Select all text for easy replacement
+        
+        # Character counter label
+        char_counter = ctk.CTkLabel(dialog_frame, text=f"{len(build_data['Build Name'])}/20", font=ctk.CTkFont(size=12), text_color="gray60")
+        char_counter.pack(pady=(0, 10))
+        
+        # Function to update character counter and limit input
+        def update_counter(*args):
+            text = entry.get()
+            # Limit to 20 characters
+            if len(text) > 20:
+                entry.delete(20, "end")
+                text = entry.get()
+            # Update counter display
+            count = len(text)
+            char_counter.configure(text=f"{count}/20")
+            # Change color based on length
+            if count >= 20:
+                char_counter.configure(text_color="orange")
+            else:
+                char_counter.configure(text_color="gray60")
+        
+        # Bind to entry field changes
+        entry.bind("<KeyRelease>", update_counter)
+        
+        entry.focus()
+        
+        # Store the result
+        new_name = None
+        
+        def on_ok():
+            nonlocal new_name
+            new_name = entry.get()
+            close_dialog()
+        
+        # Bind Enter key to OK and Escape to Cancel
+        entry.bind("<Return>", lambda e: on_ok())
+        entry.bind("<Escape>", lambda e: close_dialog())
+        dialog_frame.bind("<Escape>", lambda e: close_dialog())
+        
+        # Wait for dialog to be destroyed
+        self.wait_window(dialog_frame)
+        
+        if new_name and new_name != build_data["Build Name"]:
+            try:
+                # Get old file path
+                old_file_path = builds_directory / (self.sanitize_filename(build_data["Build Name"]) + ".json")
+                
+                # Check if a build with the new name already exists and add number suffix if needed
+                original_name = new_name
+                counter = 1
+                while True:
+                    test_filename = self.sanitize_filename(new_name) + ".json"
+                    test_path = builds_directory / test_filename
+                    if not test_path.exists() or test_path == old_file_path:
+                        break
+                    counter += 1
+                    new_name = f"{original_name} ({counter})"
+                
+                # Update build data with new name
+                build_data["Build Name"] = new_name
+                
+                # Get new file path
+                new_file_path = builds_directory / (self.sanitize_filename(new_name) + ".json")
+                
+                # Save to new file
+                self.save_build_to_file(build_data, new_file_path)
+                
+                # Delete old file if different
+                if old_file_path != new_file_path and old_file_path.exists():
+                    old_file_path.unlink()
+                
+                # Refresh the sidebar
+                self.toggle_sidebar()  # Close
+                self.toggle_sidebar()  # Reopen to refresh
+                
+            except Exception as e:
+                pass
+    
+    def clear_build(self):
+        """Clear all selections"""
+        pass
+    
+    def export_build(self):
+        """Export build to file"""
+        pass
+    
+    def open_settings(self):
+        """Open settings dialog"""
+        pass
+    
     def show_build_tuning(self):
         """Show the Build Tuning window"""
         if self.current_frame:
             self.current_frame.grid_forget()
+        # Hide sidebar when switching tabs
+        if self.sidebar_visible:
+            self.toggle_sidebar()
         self.build_tuning_frame.grid(row=0, column=0, sticky="nsew")
         self.current_frame = self.build_tuning_frame
         
@@ -2121,6 +2983,9 @@ class DamageCalculatorApp(ctk.CTk):
         """Show the Damage Output window"""
         if self.current_frame:
             self.current_frame.grid_forget()
+        # Hide sidebar when switching tabs
+        if self.sidebar_visible:
+            self.toggle_sidebar()
         self.damage_output_frame.grid(row=0, column=0, sticky="nsew")
         self.current_frame = self.damage_output_frame
         
