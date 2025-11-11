@@ -6,12 +6,26 @@
 __author__ = "iRNHO"
 __contact__ = "Message 'iRNHO' on XBOX or 'irnho' on discord regarding any questions, feedback, bug-reporting etc."
 __discord__ = "https://discord.gg/--------"
+__title__ = "iRNHO's Damage Calculator"
 
 
 #################### SECTION BREAK ####################
 
 ##### CONSTANTS #####
 
+GEAR_VARIABLES = ["Type", "Name", "Core Attribute 1", "Core Attribute 2", "Core Attribute 3", "Attribute 1", "Attribute 2", "Attribute 3", "Mod 1", "Mod 2", "Talent 1", "Talent 2"]
+GEAR_CORE_ATTRIBUTES = ["15.0% Weapon Damage", "170,000 Armor", "1 Skill Tier"]
+GEAR_SLOTS = ["Mask", "Body Armor", "Holster", "Backpack", "Gloves", "Kneepads"]
+GEAR_TYPES = ["Improvised", "Brand Set", "Gear Set", "Named", "Exotic"]
+
+WEAPON_VARIABLES = ["Class", "Type", "Name", "Core Attribute 1", "Core Attribute 2", "Attribute", "Optics Mod", "Magazine Mod", "Underbarrel Mod", "Muzzle Mod", "Talent 1", "Talent 2", "Expertise"]
+WEAPON_CLASSES = ["Assault Rifles", "Light Machineguns", "Marksman Rifles", "Pistols", "Rifles", "Shotguns", "Sub Machine Guns", "Signature Weapons"]
+
+SKILL_VARIABLES = ["Class", "Name", "Mod 1", "Mod 2", "Mod 3", "Expertise"]
+SKILL_SLOTS = ["Skill Left", "Skill Right"]
+SKILL_CLASSES = ["Ballistic Shield", "Chem Launcher", "Decoy", "Drone", "Firefly", "Hive", "Pulse", "Seeker Mine", "Smart Cover", "Sticky Bomb", "Trap", "Turret"]
+
+SPECIALIZATIONS = ["Demolitionist", "Firewall", "Gunner", "Sharpshooter", "Survivalist", "Technician"]
 
 
 #################### SECTION BREAK ####################
@@ -19,11 +33,12 @@ __discord__ = "https://discord.gg/--------"
 ##### IMPORT STATEMENTS #####
 
 import json
-import pandas as pd
+
 import customtkinter as ctk
+import pandas as pd
 
 from pathlib import Path
-from openpyxl import load_workbook
+from PIL import Image
 from platformdirs import user_data_dir
 
 
@@ -31,10 +46,12 @@ from platformdirs import user_data_dir
 
 ##### DATA LOADING #####
 
-root_directory = Path(user_data_dir("Damage Calculator", "iRNHO"))
+root_directory = Path(user_data_dir(__title__, __author__))
 assets_directory = root_directory / "assets"
 builds_directory = root_directory / "builds"
 data_directory = root_directory / "data"
+
+builds_directory.mkdir(parents=True, exist_ok=True)
 
 #dev
 assets_directory = Path(r"C:\Users\smorg\Documents\damage-calculator\assets")
@@ -50,633 +67,1266 @@ data = {name: pd.read_excel(data_directory / f"{name}.xlsx", sheet_name=None) fo
 ##### GUI CLASS #####
 
 class DamageCalculatorApp(ctk.CTk):
+
     def __init__(self):
+        """
+        Initializes the application window and its components.
+
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+
+        """
+
         super().__init__()
         
-        # Configure window
         self.title("iRNHO's Damage Calculator")
-        self.geometry("1000x700")
-        
-        # Set window icon
         self.iconbitmap(assets_directory / "sub_machine_gun.ico")
-        
-        # Set appearance mode and load custom theme
-        ctk.set_appearance_mode("dark")  # Modes: "system", "light", "dark"
-        ctk.set_default_color_theme(str(assets_directory / "theme.json"))
-        
-        # Configure grid layout
+        self.geometry("1000x700")
+
         self.grid_columnconfigure(0, weight=1)
         self.grid_rowconfigure(1, weight=1)
         
-        # Create navigation frame at the top
-        self.nav_frame = ctk.CTkFrame(self, height=60, corner_radius=0)
-        self.nav_frame.grid(row=0, column=0, sticky="ew", padx=0, pady=0)
-        self.nav_frame.grid_columnconfigure((0, 1, 2), weight=1)
+        ctk.set_default_color_theme(str(assets_directory / "custom_theme.json"))
+        ctk.set_appearance_mode("dark")        
         
-        # Navigation buttons
-        self.build_creator_btn = ctk.CTkButton(
-            self.nav_frame, 
-            text="Build Creator",
-            command=self.show_build_creator,
-            height=50,
-            font=ctk.CTkFont(size=16, weight="bold")
-        )
-        self.build_creator_btn.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        self.navigation_bar = ctk.CTkFrame(self, height=60, corner_radius=0)
+        self.navigation_bar.grid(row=0, column=0, sticky="ew", padx=0, pady=0)
+        self.navigation_bar.grid_columnconfigure(1, weight=1)
         
-        self.build_tuning_btn = ctk.CTkButton(
-            self.nav_frame,
-            text="Build Tuning",
-            command=self.show_build_tuning,
-            height=50,
-            font=ctk.CTkFont(size=16, weight="bold")
-        )
-        self.build_tuning_btn.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
+        self.burger_button = ctk.CTkButton(self.navigation_bar, text="☰", command=self.toggle_sidebar_visibility, width=40, height=40, font=ctk.CTkFont(size=20), fg_color="transparent")
+        self.burger_button.grid(row=0, column=0, padx=10, pady=10, sticky="w")
         
-        self.damage_output_btn = ctk.CTkButton(
-            self.nav_frame,
-            text="Damage Output",
-            command=self.show_damage_output,
-            height=50,
-            font=ctk.CTkFont(size=16, weight="bold")
-        )
-        self.damage_output_btn.grid(row=0, column=2, padx=5, pady=5, sticky="ew")
+        button_container = ctk.CTkFrame(self.navigation_bar, fg_color="transparent")
+        button_container.grid(row=0, column=1, sticky="")
         
-        # Create container frame for main content
-        self.content_frame = ctk.CTkFrame(self, corner_radius=0)
-        self.content_frame.grid(row=1, column=0, sticky="nsew", padx=0, pady=0)
-        self.content_frame.grid_columnconfigure(1, weight=1)
-        self.content_frame.grid_rowconfigure(0, weight=1)
+        navigation_buttons = [
+            ("Build Creator", self.show_build_creator, "build_creator_button"),
+            ("Build Tuning", self.show_build_tuning, "build_tuning_button"),
+            ("Damage Output", self.show_damage_output, "damage_output_button")
+        ]
+
+        for tab_name, command, attribute_name in navigation_buttons:
+            button = ctk.CTkButton(button_container, text=tab_name, command=command, width=200, height=50, font=ctk.CTkFont(size=16, weight="bold"))
+            button.pack(side="left", padx=5)
+            setattr(self, attribute_name, button)
         
-        # Create sidebar for Build Creator (initially hidden)
+        self.main_content_container = ctk.CTkFrame(self)
+        self.main_content_container.grid(row=1, column=0, sticky="nsew")
+        self.main_content_container.grid_rowconfigure(0, weight=1)
+        self.main_content_container.grid_columnconfigure(0, weight=1)
+        
+        self.sidebar_container = None
         self.sidebar_visible = False
-        self.sidebar_frame = None
-        self.overlay_frame = None
         
-        # Create the three main windows as frames
-        self.build_creator_frame = ctk.CTkFrame(self.content_frame)
-        self.build_tuning_frame = ctk.CTkFrame(self.content_frame)
-        self.damage_output_frame = ctk.CTkFrame(self.content_frame)
+        self.build_creator_container = ctk.CTkFrame(self.main_content_container)
+        self.build_tuning_container = ctk.CTkFrame(self.main_content_container)
+        self.damage_output_container = ctk.CTkFrame(self.main_content_container)
         
-        # Setup each frame
         self.setup_build_creator()
         self.setup_build_tuning()
         self.setup_damage_output()
         
-        # Show Build Creator by default
-        self.current_frame = None
-        self.show_build_creator()
-    
-    def setup_build_creator(self):
-        """Setup the Build Creator window"""
-        # Configure grid layout
-        self.build_creator_frame.grid_columnconfigure(0, weight=1)
-        self.build_creator_frame.grid_rowconfigure(1, weight=1)
-        
-        # Create top bar for toggle button
-        top_bar = ctk.CTkFrame(self.build_creator_frame, height=60, corner_radius=0)
-        top_bar.grid(row=0, column=0, sticky="ew", padx=0, pady=0)
-        top_bar.grid_propagate(False)
-        
-        # Create toggle button for sidebar (burger menu icon)
-        toggle_btn = ctk.CTkButton(
-            top_bar,
-            text="☰",
-            command=self.toggle_sidebar,
-            width=40,
-            height=40,
-            font=ctk.CTkFont(size=20),
-            fg_color="transparent",
-            hover_color="gray30"
-        )
-        toggle_btn.pack(side="left", padx=10, pady=10)
-        
-        # Create scrollable frame
-        scrollable_frame = ctk.CTkScrollableFrame(self.build_creator_frame)
-        scrollable_frame.grid(row=1, column=0, sticky="nsew", padx=10, pady=10)
-        scrollable_frame.grid_columnconfigure((0, 1, 2), weight=1)
-        
-        # Define gear pieces with their icons
-        # Left column: Mask, Body Armor, Holster
-        left_column_gear = [
-            ("Mask", "mask.png"),
-            ("Body Armor", "body_armor.png"),
-            ("Holster", "holster.png")
-        ]
-        
-        # Right column: Backpack, Gloves, Kneepads
-        right_column_gear = [
-            ("Backpack", "backpack.png"),
-            ("Gloves", "gloves.png"),
-            ("Kneepads", "kneepads.png")
-        ]
-        
-        # Create left column gear sections
-        for idx, (gear_name, icon_file) in enumerate(left_column_gear):
-            self.create_gear_section(scrollable_frame, gear_name, icon_file, idx, 0)
-        
-        # Create right column gear sections
-        for idx, (gear_name, icon_file) in enumerate(right_column_gear):
-            self.create_gear_section(scrollable_frame, gear_name, icon_file, idx, 1)
-        
-        # Add skills at the bottom of each column
-        # Left column skill (row 3 after 3 gear pieces)
-        self.create_skill_section(scrollable_frame, "Skill Left", "seeker_mine.png", 3, 0)
-        
-        # Right column skill (row 3 after 3 gear pieces)
-        self.create_skill_section(scrollable_frame, "Skill Right", "seeker_mine.png", 3, 1)
-        
-        # Create a container for specialization and weapon in column 3 starting at row 0
-        # This prevents them from affecting the row heights of the gear
-        weapon_container = ctk.CTkFrame(scrollable_frame, fg_color="transparent")
-        weapon_container.grid(row=0, column=2, rowspan=4, sticky="new", padx=0, pady=0)
-        weapon_container.grid_columnconfigure(0, weight=1)
-        
-        # Add specialization above weapon in the container
-        self.create_specialization_section(weapon_container, "Specialization", "demolitionist.png")
-        
-        # Add weapon in the container
-        self.create_weapon_section_in_container(weapon_container, "Weapon", "sub_machine_gun.png")
-    
-    def create_specialization_section(self, parent, spec_name, icon_file):
-        """Create a specialization section with dropdown"""
-        # Main frame for specialization with border
-        spec_frame = ctk.CTkFrame(parent, border_width=2)
-        spec_frame.pack(padx=10, pady=10, fill="x")
-        spec_frame.grid_columnconfigure(1, weight=1)
-        spec_frame.grid_rowconfigure(0, weight=1)
-        
-        # Try to load and display icon - centered vertically
-        try:
-            from PIL import Image
-            icon_path = assets_directory / icon_file
-            if icon_path.exists():
-                icon_image = ctk.CTkImage(
-                    light_image=Image.open(icon_path),
-                    dark_image=Image.open(icon_path),
-                    size=(40, 40)
-                )
-                icon_label = ctk.CTkLabel(spec_frame, image=icon_image, text="")
-                # Empty sticky means center both horizontally and vertically
-                icon_label.grid(row=0, column=0, padx=10, pady=10, sticky="")
-        except:
-            pass
-        
-        # Create inner grid frame for dropdown
-        dropdown_frame = ctk.CTkFrame(spec_frame)
-        dropdown_frame.grid(row=0, column=1, sticky="ew", padx=10, pady=10)
-        dropdown_frame.grid_columnconfigure(0, weight=1)
-        
-        # Specialization dropdown - defaults to "Select Specialization"
-        spec_var = ctk.StringVar(value="Select Specialization")
-        spec_values = ["Demolitionist", "Firewall", "Gunner", "Sharpshooter", "Survivalist", "Technician"]
-        spec_dropdown = ctk.CTkComboBox(
-            dropdown_frame,
-            values=spec_values,
-            variable=spec_var,
-            command=lambda choice: self.update_specialization(spec_var, spec_dropdown),
-            state="readonly"
-        )
-        spec_dropdown.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
-        
-        # Store reference (optional, for future use)
-        if not hasattr(self, 'specialization_var'):
-            self.specialization_var = spec_var
-        if not hasattr(self, 'specialization_dropdown'):
-            self.specialization_dropdown = spec_dropdown
-    
-    def update_specialization(self, spec_var, spec_dropdown):
-        """Update specialization dropdown to exclude current selection"""
-        current_spec = spec_var.get()
-        
-        if current_spec == "Select Specialization":
-            return
-        
-        # Get all specializations and exclude the current one
-        all_specs = ["Demolitionist", "Firewall", "Gunner", "Sharpshooter", "Survivalist", "Technician"]
-        available_specs = [s for s in all_specs if s != current_spec]
-        
-        # Update the dropdown values
-        spec_dropdown.configure(values=available_specs)
-        
-        # Update weapon class options (enable/disable Signature Weapons)
-        if hasattr(self, 'weapon_data'):
-            self.update_weapon_class_options()
-            
-            # If Signature Weapons is currently selected, update the name and talent
-            class_val = self.weapon_data['variables']['class'].get()
-            if class_val == "Signature Weapons":
-                # Re-run the weapon name update to get the new signature weapon
-                self.update_weapon_name("Weapon", self.weapon_data)
-            
-            # Check if weapon name requires a different specialization
-            if class_val != "Select Class" and class_val != "Signature Weapons":
-                if 'name' in self.weapon_data['variables']:
-                    name_val = self.weapon_data['variables']['name'].get()
-                    
-                    if name_val != "Select Name":
-                        # Check if this weapon requires a different specialization
-                        original_weapon_names = self.weapon_data.get('original_weapon_names', [])
-                        needs_weapon_reset = False
-                        
-                        for orig_name in original_weapon_names:
-                            if '(' in orig_name and ')' in orig_name:
-                                paren_start = orig_name.rindex('(')
-                                paren_end = orig_name.rindex(')')
-                                base_name = orig_name[:paren_start].strip()
-                                paren_content = orig_name[paren_start+1:paren_end].strip()
-                                
-                                # If this weapon matches and requires different spec, reset it
-                                if self.is_specialization_name(paren_content):
-                                    if base_name == name_val and paren_content != current_spec:
-                                        needs_weapon_reset = True
-                                        break
-                        
-                        if needs_weapon_reset:
-                            # Reset weapon name and everything below it
-                            self.weapon_data['variables']['name'].set("Select Name")
-                            self.weapon_data['prev_name'] = "Select Name"
-                            self.weapon_data['matched_weapon_name'] = "Select Name"
-                            
-                            # Clear all weapon attributes, mods, talents
-                            for key in list(self.weapon_data['dropdowns'].keys()):
-                                if key not in ['class', 'type', 'name']:
-                                    self.weapon_data['dropdowns'][key].grid_forget()
-                                    del self.weapon_data['dropdowns'][key]
-                            for key in list(self.weapon_data['variables'].keys()):
-                                if key not in ['class', 'type', 'name']:
-                                    del self.weapon_data['variables'][key]
-                            
-                            # Update weapon name dropdown options
-                            type_val = self.weapon_data['variables'].get('type', ctk.StringVar(value="Select Type")).get()
-                            if type_val != "Select Type":
-                                weapon_sheet = data["Weapon"][class_val]
-                                all_names = [str(name) for name in weapon_sheet[weapon_sheet["Type"] == type_val]["Name"].tolist()]
-                                
-                                # Process names for display
-                                processed_names = []
-                                for name in all_names:
-                                    if '(' in name and ')' in name:
-                                        paren_start = name.rindex('(')
-                                        paren_end = name.rindex(')')
-                                        base_name = name[:paren_start].strip()
-                                        paren_content = name[paren_start+1:paren_end].strip()
-                                        
-                                        if self.is_specialization_name(paren_content):
-                                            if current_spec == paren_content:
-                                                processed_names.append(base_name)
-                                            else:
-                                                processed_names.append(f"{base_name} (Select {paren_content})")
-                                        else:
-                                            processed_names.append(name)
-                                    else:
-                                        processed_names.append(name)
-                                
-                                if 'name' in self.weapon_data['dropdowns']:
-                                    self.weapon_data['dropdowns']['name'].configure(values=processed_names)
-                        else:
-                            # Weapon doesn't need reset, but update name dropdown and check mods
-                            type_val = self.weapon_data['variables'].get('type', ctk.StringVar(value="Select Type")).get()
-                            if type_val != "Select Type":
-                                weapon_sheet = data["Weapon"][class_val]
-                                all_names = [str(name) for name in weapon_sheet[weapon_sheet["Type"] == type_val]["Name"].tolist()]
-                                
-                                # Process names for display
-                                processed_names = []
-                                for name in all_names:
-                                    if '(' in name and ')' in name:
-                                        paren_start = name.rindex('(')
-                                        paren_end = name.rindex(')')
-                                        base_name = name[:paren_start].strip()
-                                        paren_content = name[paren_start+1:paren_end].strip()
-                                        
-                                        if self.is_specialization_name(paren_content):
-                                            if current_spec == paren_content:
-                                                processed_names.append(base_name)
-                                            else:
-                                                processed_names.append(f"{base_name} (Select {paren_content})")
-                                        else:
-                                            processed_names.append(name)
-                                    else:
-                                        processed_names.append(name)
-                                
-                                # Exclude current selection
-                                if name_val != "Select Name":
-                                    available_names = [n for n in processed_names if n != name_val]
-                                else:
-                                    available_names = processed_names
-                                
-                                if 'name' in self.weapon_data['dropdowns']:
-                                    self.weapon_data['dropdowns']['name'].configure(values=available_names)
-                            
-                            # Check and reset weapon mods that require a different specialization
-                            original_weapon_mods_dict = self.weapon_data.get('original_weapon_mods', {})
-                    
-                    for key, mod_var in list(self.weapon_data['variables'].items()):
-                        if key.startswith('mod_'):
-                            mod_val = mod_var.get()
-                            original_mods = original_weapon_mods_dict.get(key, [])
-                            
-                            # Check if current mod requires a different specialization
-                            for orig_mod in original_mods:
-                                if '(' in orig_mod and ')' in orig_mod:
-                                    paren_start = orig_mod.rindex('(')
-                                    paren_end = orig_mod.rindex(')')
-                                    base_mod = orig_mod[:paren_start].strip()
-                                    paren_content = orig_mod[paren_start+1:paren_end].strip()
-                                    
-                                    # If this mod matches and requires different spec, reset it
-                                    if self.is_specialization_name(paren_content):
-                                        if base_mod == mod_val and paren_content != current_spec:
-                                            # Reset this specific mod
-                                            mod_index = int(key.split('_')[1])
-                                            mod_types = ["Optics Mod", "Magazine Mod", "Underbarrel Mod", "Muzzle Mod"]
-                                            if mod_index <= len(mod_types):
-                                                column_name = mod_types[mod_index - 1]
-                                                mod_var.set(f"Select {column_name}")
-                                                self.weapon_data[f'prev_{key}'] = f"Select {column_name}"
-                                            break
-                    
-                    # Update weapon mod dropdown options to show correct "(Select X)" indicators
-                    # Only update if weapon hasn't been reset
-                    if name_val != "Select Name" and 'matched_weapon_name' in self.weapon_data:
-                        weapon_sheet = data["Weapon"][class_val]
-                        type_val = self.weapon_data['variables'].get('type', ctk.StringVar(value="Select Type")).get()
-                        if type_val != "Select Type":
-                            # Use the matched weapon name for database lookup
-                            lookup_name = self.weapon_data.get('matched_weapon_name', name_val)
-                            
-                            # Make sure the lookup name is valid (not "Select Name")
-                            if lookup_name != "Select Name":
-                                weapon_rows = weapon_sheet[(weapon_sheet["Name"] == lookup_name) & (weapon_sheet["Type"] == type_val)]
-                                if not weapon_rows.empty:
-                                    weapon_row = weapon_rows.iloc[0]
-                                    
-                                    mod_types = [
-                                        ("Optics Mod", "Optics Mods"),
-                                        ("Magazine Mod", "Magazine Mods"),
-                                        ("Underbarrel Mod", "Underbarrel Mods"),
-                                        ("Muzzle Mod", "Muzzle Mods")
-                                    ]
-                                    
-                                    for i, (column_name, sheet_name) in enumerate(mod_types, start=1):
-                                        key = f'mod_{i}'
-                                        if key in self.weapon_data['dropdowns'] and key in self.weapon_data['variables']:
-                                            mod_cell = weapon_row.get(column_name, pd.NA)
-                                            if not pd.isna(mod_cell) and isinstance(mod_cell, str) and mod_cell.startswith("*"):
-                                                mod_rail = mod_cell[1:]
-                                                
-                                                if sheet_name in data["Weapon"]:
-                                                    mods_df = data["Weapon"][sheet_name]
-                                                    if mod_rail in mods_df.columns:
-                                                        all_mods = mods_df[mods_df[mod_rail] == '✓']['Stats'].tolist()
-                                                        
-                                                        # Process mods to handle specialization requirements
-                                                        processed_mods = []
-                                                        for mod in all_mods:
-                                                            if '(' in mod and ')' in mod:
-                                                                paren_start = mod.rindex('(')
-                                                                paren_end = mod.rindex(')')
-                                                                base_mod = mod[:paren_start].strip()
-                                                                paren_content = mod[paren_start+1:paren_end].strip()
-                                                                
-                                                                if self.is_specialization_name(paren_content):
-                                                                    if current_spec == paren_content:
-                                                                        processed_mods.append(base_mod)
-                                                                    else:
-                                                                        processed_mods.append(f"{base_mod} (Select {paren_content})")
-                                                                else:
-                                                                    processed_mods.append(mod)
-                                                            else:
-                                                                processed_mods.append(mod)
-                                                        
-                                                        # Exclude current selection
-                                                        current_mod = self.weapon_data['variables'][key].get()
-                                                        if current_mod not in [f"Select {column_name}"]:
-                                                            available_mods = [m for m in processed_mods if m != current_mod]
-                                                        else:
-                                                            available_mods = processed_mods
-                                                        
-                                                        self.weapon_data['dropdowns'][key].configure(values=available_mods)
-        
-        # Update all skill dropdowns to reflect specialization changes
-        if hasattr(self, 'skill_sections'):
-            for skill_name, skill_data in self.skill_sections.items():
-                class_val = skill_data['variables']['class'].get()
-                
-                # Skip if no class selected or name variable doesn't exist yet
-                if class_val == "Select Class" or 'name' not in skill_data['variables']:
-                    continue
-                
-                name_val = skill_data['variables']['name'].get()
-                
-                if name_val == "Select Name":
-                    # Still update dropdown options even if no name selected
-                    if 'name' in skill_data['dropdowns']:
-                        variant_row = data["Skill"]["Variants"][data["Skill"]["Variants"]["Class"] == class_val].iloc[0]
-                        names_str = variant_row["Name"]
-                        all_names = [n.strip() for n in names_str.split(';')]
-                        
-                        # Process names for display based on current specialization
-                        processed_names = []
-                        for name in all_names:
-                            if '(' in name and ')' in name:
-                                base_name = name[:name.index('(')].strip()
-                                required_spec = name[name.index('(')+1:name.index(')')].strip()
-                                if current_spec == required_spec:
-                                    processed_names.append(base_name)
-                                else:
-                                    processed_names.append(f"{base_name} (Select {required_spec})")
-                            else:
-                                processed_names.append(name)
-                        
-                        skill_data['dropdowns']['name'].configure(values=processed_names)
-                    continue
-                
-                # Check if current skill requires a specialization that doesn't match
-                original_names = skill_data.get('original_names', [])
-                
-                # Find which original name corresponds to the current selection
-                needs_reset = False
-                for orig_name in original_names:
-                    if '(' in orig_name and ')' in orig_name:
-                        base_name = orig_name[:orig_name.index('(')].strip()
-                        required_spec = orig_name[orig_name.index('(')+1:orig_name.index(')')].strip()
-                        
-                        # If current skill matches this base name and it requires a DIFFERENT specialization, reset it
-                        if base_name == name_val and required_spec != current_spec:
-                            needs_reset = True
-                            break
-                
-                if needs_reset:
-                    # Reset the skill name selection
-                    skill_data['variables']['name'].set("Select Name")
-                    skill_data['prev_name'] = "Select Name"
-                    # Clear mods
-                    for key in list(skill_data['dropdowns'].keys()):
-                        if key not in ['class', 'name']:
-                            skill_data['dropdowns'][key].grid_forget()
-                            del skill_data['dropdowns'][key]
-                    for key in list(skill_data['variables'].keys()):
-                        if key not in ['class', 'name']:
-                            del skill_data['variables'][key]
-                else:
-                    # Skill name doesn't need reset, but check individual mods
-                    # Reset any mods that require a different specialization
-                    original_mods_dict = skill_data.get('original_mods', {})
-                    for key, mod_var in list(skill_data['variables'].items()):
-                        if key.startswith('mod_'):
-                            mod_val = mod_var.get()
-                            original_mods = original_mods_dict.get(key, [])
-                            
-                            # Check if current mod requires a different specialization
-                            for orig_mod in original_mods:
-                                if '(' in orig_mod and ')' in orig_mod:
-                                    paren_start = orig_mod.rindex('(')
-                                    paren_end = orig_mod.rindex(')')
-                                    base_mod = orig_mod[:paren_start].strip()
-                                    paren_content = orig_mod[paren_start+1:paren_end].strip()
-                                    
-                                    # If this mod matches and requires different spec, reset it
-                                    if self.is_specialization_name(paren_content):
-                                        if base_mod == mod_val and paren_content != current_spec:
-                                            # Reset this specific mod
-                                            col_index = int(key.split('_')[1]) - 1
-                                            mods_sheet_name = f"{class_val} Mods"
-                                            if mods_sheet_name in data["Skill"]:
-                                                mods_df = data["Skill"][mods_sheet_name]
-                                                all_columns = mods_df.columns.tolist()
-                                                mod_columns = [col for col in all_columns if col not in ['Stats', 'Last Checked']]
-                                                if col_index < len(mod_columns):
-                                                    col_name = mod_columns[col_index]
-                                                    mod_var.set(f"Select {col_name} Mod")
-                                                    skill_data[f'prev_{key}'] = f"Select {col_name} Mod"
-                                            break
-                
-                # Update the name dropdown options (without recreating everything)
-                if 'name' in skill_data['dropdowns']:
-                    variant_row = data["Skill"]["Variants"][data["Skill"]["Variants"]["Class"] == class_val].iloc[0]
-                    names_str = variant_row["Name"]
-                    all_names = [n.strip() for n in names_str.split(';')]
-                    
-                    # Process names for display based on current specialization
-                    processed_names = []
-                    for name in all_names:
-                        if '(' in name and ')' in name:
-                            base_name = name[:name.index('(')].strip()
-                            required_spec = name[name.index('(')+1:name.index(')')].strip()
-                            if current_spec == required_spec:
-                                processed_names.append(base_name)
-                            else:
-                                processed_names.append(f"{base_name} (Select {required_spec})")
-                        else:
-                            processed_names.append(name)
-                    
-                    # Exclude current selection
-                    current_name = skill_data['variables']['name'].get()
-                    if current_name != "Select Name":
-                        available_names = [n for n in processed_names if n != current_name]
-                    else:
-                        available_names = processed_names
-                    
-                    skill_data['dropdowns']['name'].configure(values=available_names)
-                
-                # Update mod dropdown options to show correct "(Select X)" indicators
-                if not needs_reset:
-                    mods_sheet_name = f"{class_val} Mods"
-                    if mods_sheet_name in data["Skill"]:
-                        mods_df = data["Skill"][mods_sheet_name]
-                        all_columns = mods_df.columns.tolist()
-                        mod_columns = [col for col in all_columns if col not in ['Stats', 'Last Checked']]
-                        
-                        for i, col_name in enumerate(mod_columns):
-                            key = f'mod_{i+1}'
-                            if key in skill_data['dropdowns'] and key in skill_data['variables']:
-                                # Get all mods for this column
-                                all_mods = mods_df[mods_df[col_name] == '✓']['Stats'].tolist()
-                                
-                                # Process mods to handle specialization requirements
-                                processed_mods = []
-                                for mod in all_mods:
-                                    if '(' in mod and ')' in mod:
-                                        paren_start = mod.rindex('(')
-                                        paren_end = mod.rindex(')')
-                                        base_mod = mod[:paren_start].strip()
-                                        paren_content = mod[paren_start+1:paren_end].strip()
-                                        
-                                        if self.is_specialization_name(paren_content):
-                                            if current_spec == paren_content:
-                                                processed_mods.append(base_mod)
-                                            else:
-                                                processed_mods.append(f"{base_mod} (Select {paren_content})")
-                                        else:
-                                            processed_mods.append(mod)
-                                    else:
-                                        processed_mods.append(mod)
-                                
-                                # Exclude current selection
-                                current_mod = skill_data['variables'][key].get()
-                                if current_mod not in [f"Select {col_name} Mod"]:
-                                    available_mods = [m for m in processed_mods if m != current_mod]
-                                else:
-                                    available_mods = processed_mods
-                                
-                                skill_data['dropdowns'][key].configure(values=available_mods)
+        self.build_creator_container.grid(row=0, column=0, sticky="nsew")
+        self.current_tab = self.build_creator_container
 
-    def create_gear_section(self, parent, gear_name, icon_file, row_num, column_num):
-        """Create a gear section with all dropdown fields"""
-        # Main frame for this gear piece with border
-        gear_frame = ctk.CTkFrame(parent, border_width=2)
-        gear_frame.grid(row=row_num, column=column_num, sticky="nsew", padx=10, pady=10)
-        gear_frame.grid_columnconfigure(1, weight=1)
-        gear_frame.grid_rowconfigure(0, weight=1)
+    
+    ####################
+
+    def toggle_sidebar_visibility(self):
+        """
+        Toggles the sidebar visibility.
         
-        # Try to load and display icon - centered vertically
-        try:
-            from PIL import Image
-            icon_path = assets_directory / icon_file
-            if icon_path.exists():
-                icon_image = ctk.CTkImage(
-                    light_image=Image.open(icon_path),
-                    dark_image=Image.open(icon_path),
-                    size=(40, 40)
-                )
-                icon_label = ctk.CTkLabel(gear_frame, image=icon_image, text="")
-                # Empty sticky means center both horizontally and vertically
-                icon_label.grid(row=0, column=0, padx=10, pady=10, sticky="")
-        except:
-            pass
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
         
-        # Create inner grid frame for dropdowns
-        dropdown_frame = ctk.CTkFrame(gear_frame)
-        dropdown_frame.grid(row=0, column=1, sticky="ew", padx=10, pady=10)
-        dropdown_frame.grid_columnconfigure(0, weight=1)
+        """
         
-        # Store references to all dropdowns for this gear piece
+        if self.sidebar_visible:
+            if self.sidebar_container:
+                self.sidebar_container.place_forget()
+
+            self.sidebar_visible = False
+            self.unbind("<Escape>")
+
+        else:
+            if self.sidebar_container:
+                self.sidebar_container.destroy()
+                self.sidebar_container = None
+            
+            self.create_sidebar()
+            self.sidebar_container.place(x=0, y=0, relheight=1.0)
+            self.sidebar_visible = True
+            self.bind("<Escape>", lambda event: self.toggle_sidebar_visibility())
+
+
+    def show_build_creator(self):
+        """
+        Displays the 'Build Creator' tab.
+
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+
+        """
+
+        self.current_tab.grid_forget()
+
+        self.build_creator_container.grid(row=0, column=0, sticky="nsew")
+        self.current_tab = self.build_creator_container
+        
+        self.build_creator_button.configure(state="disabled")
+        self.build_tuning_button.configure(state="normal")
+        self.damage_output_button.configure(state="normal")
+    
+    
+    def show_build_tuning(self):
+        """
+        Displays the 'Build Tuning' tab.
+        
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+            
+        """
+
+        self.current_tab.grid_forget()
+
+        self.build_tuning_container.grid(row=0, column=0, sticky="nsew")
+        self.current_tab = self.build_tuning_container
+        
+        self.build_creator_button.configure(state="normal")
+        self.build_tuning_button.configure(state="disabled")
+        self.damage_output_button.configure(state="normal")
+    
+
+    def show_damage_output(self):
+        """
+        Displays the 'Damage Output' tab.
+        
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+
+        """
+
+        self.current_tab.grid_forget()
+
+        self.damage_output_container.grid(row=0, column=0, sticky="nsew")
+        self.current_tab = self.damage_output_container
+        
+        self.build_creator_button.configure(state="normal")
+        self.build_tuning_button.configure(state="normal")
+        self.damage_output_button.configure(state="disabled")
+
+
+    def setup_build_creator(self):
+        """
+        Populates the 'Build Creator' tab with its UI components.
+
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+        
+        """
+
+        self.build_creator_container.grid_columnconfigure(0, weight=1)
+        self.build_creator_container.grid_rowconfigure(0, weight=1)
+        
+        scrollable_container = ctk.CTkScrollableFrame(self.build_creator_container)
+        scrollable_container.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
+        scrollable_container.grid_columnconfigure((0, 1, 2), weight=1)
+
+        self.create_gear_section(scrollable_container, "Mask", "mask.png", 0, 0)
+        self.create_gear_section(scrollable_container, "Body Armor", "body_armor.png", 1, 0)
+        self.create_gear_section(scrollable_container, "Holster", "holster.png", 2, 0)
+        self.create_gear_section(scrollable_container, "Backpack", "backpack.png", 0, 1)
+        self.create_gear_section(scrollable_container, "Gloves", "gloves.png", 1, 1)
+        self.create_gear_section(scrollable_container, "Kneepads", "kneepads.png", 2, 1)
+
+        self.create_skill_section(scrollable_container, "Skill Left", "seeker_mine.png", 3, 0)
+        self.create_skill_section(scrollable_container, "Skill Right", "seeker_mine.png", 3, 1)
+        
+        isolated_container = ctk.CTkFrame(scrollable_container, fg_color="transparent")
+        isolated_container.grid(row=0, column=2, rowspan=4, sticky="new", padx=0, pady=0)
+        isolated_container.grid_columnconfigure(0, weight=1)
+        
+        self.create_specialization_section(isolated_container, "demolitionist.png")
+        self.create_weapon_section(isolated_container, "sub_machine_gun.png")
+
+
+    def setup_build_tuning(self):
+        """
+        Populates the 'Build Tuning' tab with its UI components.
+
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+
+        """
+
+        pass
+
+
+    def setup_damage_output(self):
+        """
+        
+        Populates the 'Damage Output' tab with its UI components.
+
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+
+        """
+
+        pass
+
+
+    ####################
+    
+    def create_sidebar(self):
+        """
+        Creates the sidebar menu.
+        
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+        
+        """
+
+        self.sidebar_container = ctk.CTkFrame(self, width=550, corner_radius=0)
+        self.sidebar_container.pack_propagate(False)
+        
+        close_button = ctk.CTkButton(self.sidebar_container, text="✕", command=self.toggle_sidebar_visibility, width=30, height=30, font=ctk.CTkFont(size=16), fg_color="transparent")
+        close_button.place(x=510, y=10)
+        
+        scrollable_container = ctk.CTkScrollableFrame(self.sidebar_container)
+        scrollable_container.pack(fill="both", expand=True, padx=10, pady=(50, 10))
+        
+        self.refresh_build_list(scrollable_container)
+
+    
+    def create_gear_section(self, parent_container, gear_slot, icon_file, row, column):
+        """
+        Creates a gear piece selection section.
+
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+            parent_container: The parent container where the gear section will be added.
+            gear_name: The name of the gear piece.
+            icon_file: The filename of the icon to display.
+            row: The row position in the grid.
+            column: The column position in the grid.
+
+        """
+
+        gear_container = ctk.CTkFrame(parent_container, border_width=2)
+        gear_container.grid(row=row, column=column, sticky="nsew", padx=10, pady=10)
+        gear_container.grid_columnconfigure(1, weight=1)
+        gear_container.grid_rowconfigure(0, weight=1)
+        
+        icon_path = assets_directory / icon_file
+        icon_label = ctk.CTkLabel(gear_container, image=ctk.CTkImage(light_image=Image.open(icon_path), dark_image=Image.open(icon_path), size=(40, 40)), text="")
+        icon_label.grid(row=0, column=0, padx=10, pady=10, sticky="")
+
+        dropdown_container = ctk.CTkFrame(gear_container)
+        dropdown_container.grid(row=0, column=1, sticky="ew", padx=10, pady=10)
+        dropdown_container.grid_columnconfigure(0, weight=1)
+        
         gear_data = {
-            'slot': gear_name,
-            'frame': dropdown_frame,
-            'dropdowns': {},
-            'variables': {}
+            "Slot": gear_slot,
+            "Frame": dropdown_container,
+            "Variables": {},
+            "Dropdowns": {}
         }
         
-        # Type dropdown - always shown
-        type_var = ctk.StringVar(value="Select Type")
-        type_dropdown = ctk.CTkComboBox(
-            dropdown_frame, 
-            values=["Improvised", "Brand Set", "Gear Set", "Named", "Exotic"],
-            variable=type_var,
-            command=lambda choice: self.update_gear(gear_name, gear_data),
-            state="readonly"
-        )
+        type_variable = ctk.StringVar(value="Select Type")
+        type_dropdown = ctk.CTkComboBox(dropdown_container, values=GEAR_TYPES, variable=type_variable, command=lambda choice: self.update_gear(gear_slot, gear_data, trigger_point="Type"), state="readonly")
         type_dropdown.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
         
-        gear_data['variables']['type'] = type_var
-        gear_data['dropdowns']['type'] = type_dropdown
+        gear_data["Variables"]["Type"] = type_variable
+        gear_data["Dropdowns"]["Type"] = type_dropdown
         
-        # Store gear_data for later access
-        if not hasattr(self, 'gear_sections'):
-            self.gear_sections = {}
-        self.gear_sections[gear_name] = gear_data
+        if not hasattr(self, "gear_sections"):
+            self.gear_data = {}
+
+        self.gear_data[gear_slot] = gear_data
+
+
+    def create_skill_section(self, parent_container, skill_slot, icon_file, row, column):
+        """
+        Creates a skill selection section.
+        
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+            parent_container: The parent container where the skill section will be added.
+            skill_name: The name of the skill.
+            icon_file: The filename of the icon to display.
+            row: The row position in the grid.
+            column: The column position in the grid.
+        
+        """
+
+        skill_container = ctk.CTkFrame(parent_container, border_width=2)
+        skill_container.grid(row=row, column=column, sticky="nsew", padx=10, pady=(20, 10))
+        skill_container.grid_columnconfigure(1, weight=1)
+        skill_container.grid_rowconfigure(0, weight=1)
+
+        icon_path = assets_directory / icon_file
+        icon_label = ctk.CTkLabel(skill_container, image=ctk.CTkImage(light_image=Image.open(icon_path), dark_image=Image.open(icon_path), size=(40, 40)), text="")
+        icon_label.grid(row=0, column=0, padx=10, pady=10, sticky="")
+        
+        dropdown_container = ctk.CTkFrame(skill_container)
+        dropdown_container.grid(row=0, column=1, sticky="ew", padx=10, pady=10)
+        dropdown_container.grid_columnconfigure(0, weight=1)
+        
+        skill_data = {
+            "Slot": skill_slot,
+            "Frame": dropdown_container,
+            "Variables": {},
+            "Dropdowns": {},
+            "Labels": {}
+        }
+        
+        class_variable = ctk.StringVar(value="Select Class")
+        class_dropdown = ctk.CTkComboBox(dropdown_container, values=SKILL_CLASSES, variable=class_variable, command=lambda choice: self.update_skill(skill_slot, skill_data, trigger_point="Class"), state="readonly")
+        class_dropdown.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        
+        skill_data["Variables"]["Class"] = class_variable
+        skill_data["Dropdowns"]["Class"] = class_dropdown
+        
+        expertise_variable = ctk.IntVar(value=30)
+        expertise_label = ctk.CTkLabel(dropdown_container, text=f"Expertise: 30")
+        expertise_label.grid(row=100, column=0, padx=5, pady=(10, 2), sticky="w")
+        
+        expertise_slider = ctk.CTkSlider(dropdown_container, from_=0, to=30, number_of_steps=30, variable=expertise_variable, command=lambda value: expertise_label.configure(text=f"Expertise: {int(value)}"))
+        expertise_slider.grid(row=101, column=0, padx=5, pady=(0, 5), sticky="ew")
+        
+        skill_data["Variables"]["Expertise"] = expertise_variable
+        skill_data["Labels"]["Expertise"] = expertise_label
+        
+        if not hasattr(self, "skill_sections"):
+            self.skill_data = {}
+
+        self.skill_data[skill_slot] = skill_data
+
+
+    def create_specialization_section(self, parent_container, icon_file):
+        """
+        Creates the specialization selection section.
+        
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+            parent_container: The parent container where the specialization section will be added.
+            icon_file: The filename of the icon to display.
+
+        """
+
+        specialization_container = ctk.CTkFrame(parent_container, border_width=2)
+        specialization_container.pack(padx=10, pady=10, fill="x")
+        specialization_container.grid_columnconfigure(1, weight=1)
+        specialization_container.grid_rowconfigure(0, weight=1)
+        
+        icon_path = assets_directory / icon_file
+        icon_label = ctk.CTkLabel(specialization_container, image=ctk.CTkImage(light_image=Image.open(icon_path), dark_image=Image.open(icon_path), size=(40, 40)), text="")
+        icon_label.grid(row=0, column=0, padx=10, pady=10, sticky="")
+        
+        dropdown_container = ctk.CTkFrame(specialization_container)
+        dropdown_container.grid(row=0, column=1, sticky="ew", padx=10, pady=10)
+        dropdown_container.grid_columnconfigure(0, weight=1)
+        
+        specialization_variable = ctk.StringVar(value="Select Specialization")
+        specialization_dropdown = ctk.CTkComboBox(dropdown_container, values=SPECIALIZATIONS, variable=specialization_variable, command=lambda choice: self.update_specialization(specialization_variable, specialization_dropdown), state="readonly")
+        specialization_dropdown.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        
+        self.specialization_variable = specialization_variable
+        self.specialization_dropdown = specialization_dropdown
+
+
+    def create_weapon_section(self, parent_container, icon_file):
+        """
+        Creates the weapon selection section.
+
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+            parent_container: The parent container where the weapon section will be added.
+            icon_file: The filename of the icon to display.
+
+        """
+
+        weapon_container = ctk.CTkFrame(parent_container, border_width=2)
+        weapon_container.pack(padx=10, pady=10, fill="both", expand=True)
+        weapon_container.grid_columnconfigure(1, weight=1)
+        weapon_container.grid_rowconfigure(0, weight=1)
+        
+        icon_path = assets_directory / icon_file
+        icon_label = ctk.CTkLabel(weapon_container, image=ctk.CTkImage(light_image=Image.open(icon_path), dark_image=Image.open(icon_path), size=(40, 40)), text="")
+        icon_label.grid(row=0, column=0, padx=10, pady=10, sticky="")
+        
+        dropdown_container = ctk.CTkFrame(weapon_container)
+        dropdown_container.grid(row=0, column=1, sticky="ew", padx=10, pady=10)
+        dropdown_container.grid_columnconfigure(0, weight=1)
+        
+        weapon_data = {
+            "Frame": dropdown_container,
+            "Variables": {},
+            "Dropdowns": {},
+            "Labels": {}
+        }
+        
+        class_variable = ctk.StringVar(value="Select Class")
+        class_dropdown = ctk.CTkComboBox(dropdown_container, values=WEAPON_CLASSES, variable=class_variable, command=lambda choice: self.update_weapon("Weapon", weapon_data, trigger_point="Class"), state="readonly")
+        class_dropdown.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
+        
+        weapon_data["Variables"]["Class"] = class_variable
+        weapon_data["Dropdowns"]["Class"] = class_dropdown
+        
+        expertise_variable = ctk.IntVar(value=30)
+        expertise_label = ctk.CTkLabel(dropdown_container, text=f"Expertise: 30")
+        expertise_label.grid(row=100, column=0, padx=5, pady=(10, 2), sticky="w")
+        
+        expertise_slider = ctk.CTkSlider(dropdown_container, from_=0, to=30, number_of_steps=30, variable=expertise_variable, command=lambda value: expertise_label.configure(text=f"Expertise: {int(value)}"))
+        expertise_slider.grid(row=101, column=0, padx=5, pady=(0, 5), sticky="ew")
+        
+        weapon_data["Variables"]["Expertise"] = expertise_variable
+        weapon_data["Labels"]["Expertise"] = expertise_label
+        
+        self.weapon_data = weapon_data
+
+
+    ####################
+
+    def refresh_build_list(self, scrollable_container):
+        """
+        Refreshes the list of builds within the sidebar.
+
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+            scrollable_container: The scrollable container to populate with build entries.
+        
+        """
+
+        for build_entry in scrollable_container.winfo_children():
+            build_entry.destroy()
+                
+        for build_dictionary in self.get_all_builds():
+            self.create_build_entry(scrollable_container, build_dictionary)
+        
+        new_build_container = ctk.CTkFrame(scrollable_container, height=80)
+        new_build_container.pack(fill="x", padx=5, pady=10)
+        
+        new_build_button = ctk.CTkButton(new_build_container, text="+ Save Build", command=self.create_new_build, height=60, font=ctk.CTkFont(size=16, weight="bold"))
+        new_build_button.pack(fill="both", expand=True, padx=10, pady=10)
+
+
+    ####################
+    
+    def get_all_builds(self):
+        """
+        Retrieves all saved builds from the builds directory.
+        
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+
+        Returns:
+            List of dictionaries representing each build.        
+
+        """
+
+        build_dictionaries = []
+        
+        for build_file in builds_directory.iterdir():
+            with open(build_file, "r") as file:
+                build_dictionaries.append(json.load(file))
+
+        return sorted(build_dictionaries, key=lambda build_dictionary: build_dictionary["Build Name"].lower())
+    
+
+    def create_build_entry(self, scrollable_container, build_dictionary):
+        """
+        Creates a single build entry with load, rename, overwrite, and delete buttons.
+
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+            scrollable_container: The container to which the build entry will be added.
+            build_dictionary: A dictionary containing the build's data.
+        
+        """
+
+        build_container = ctk.CTkFrame(scrollable_container)
+        build_container.pack(fill="x", padx=5, pady=5)
+        
+        name_label = ctk.CTkLabel(build_container, text=build_dictionary["Build Name"], font=ctk.CTkFont(size=14, weight="bold"), anchor="w")
+        name_label.pack(side="left", padx=10, pady=10, fill="x", expand=True)
+        
+        button_container = ctk.CTkFrame(build_container, fg_color="transparent")
+        button_container.pack(side="right", padx=5, pady=5)
+
+        buttons = [
+            ("load", self.load_build),
+            ("rename", self.rename_build),
+            ("overwrite", self.overwrite_build),
+            ("delete", self.delete_build)
+        ]
+
+        for icon_name, command in buttons:
+            icon_path = assets_directory / f"{icon_name}.png"
+            button = ctk.CTkButton(button_container, text="", image=ctk.CTkImage(light_image=Image.open(icon_path), dark_image=Image.open(icon_path), size=(30, 30)), command=lambda command=command: command(build_dictionary), width=40, height=40, fg_color="transparent", border_width=2, border_color="gray30")
+            button.pack(side="left", padx=2)
+
+
+    def create_new_build(self):
+        """
+        Creates a new build by saving the current selections.
+        
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+        
+        """
+
+        self.unbind("<Escape>")
+        
+        dialog_container = ctk.CTkFrame(self, width=400, height=135, corner_radius=10, border_width=2, border_color="gray30")
+        dialog_container.place(relx=0.5, rely=0.5, anchor="center")
+        dialog_container.pack_propagate(False)
+        
+        def close_dialog():
+            dialog_container.destroy()
+
+            if self.sidebar_visible:
+                self.bind("<Escape>", lambda event: self.toggle_sidebar_visibility())
+        
+        close_button = ctk.CTkButton(dialog_container, text="✕", command=close_dialog, width=30, height=30, font=ctk.CTkFont(size=16), fg_color="transparent")
+        close_button.place(x=360, y=10)
+        
+        label = ctk.CTkLabel(dialog_container, text="Enter build name:", font=ctk.CTkFont(size=14))
+        label.pack(pady=(20, 5))
+        
+        entry = ctk.CTkEntry(dialog_container, width=300, height=35)
+        entry.pack(pady=5)
+        
+        character_counter = ctk.CTkLabel(dialog_container, text="0/20", font=ctk.CTkFont(size=12), text_color="gray60")
+        character_counter.pack(pady=(0, 10))
+        
+        def update_counter(*args):
+            text = entry.get()
+
+            if len(text) > 20:
+                entry.delete(20, "end")
+                text = entry.get()
+
+            count = len(text)
+            character_counter.configure(text=f"{count}/20")
+
+            if count == 20:
+                character_counter.configure(text_color="#ff7f27")
+
+            else:
+                character_counter.configure(text_color="gray60")
+        
+        entry.bind("<KeyRelease>", update_counter)
+        entry.focus()
+        
+        build_name = None
+        
+        def on_ok():
+            nonlocal build_name
+            text = entry.get().strip()
+
+            if text:
+                build_name = text
+                close_dialog()
+        
+        entry.bind("<Return>", lambda event: on_ok())
+        entry.bind("<Escape>", lambda event: close_dialog())
+        dialog_container.bind("<Escape>", lambda event: close_dialog())
+        
+        self.wait_window(dialog_container)
+        
+        if build_name:
+            original_name = build_name
+            counter = 1
+
+            while True:
+                if not (builds_directory / f"{self.sanitize_filename(build_name)}.json").exists():
+                    break
+
+                build_name = f"{original_name} ({counter})"
+                counter += 1
+            
+            build_data = self.get_current_build_state(build_name)
+            
+            file_path = builds_directory / f"{self.sanitize_filename(build_name)}.json"
+            self.save_build_to_file(build_data, file_path)
+            
+            self.toggle_sidebar_visibility()
+            self.toggle_sidebar_visibility()
+
+
+    ####################
+
+    def load_build(self, build_dictionary):
+        """
+        Loads a build into the current environment.
+
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+            build_dictionary: A dictionary containing the build's data.
+        
+        """
+
+        specialization_value = build_dictionary["Specialization"]
+        if specialization_value:
+            self.specialization_variable.set(specialization_value)
+            self.update_specialization(self.specialization_variable, self.specialization_dropdown)
+
+        weapon_dictionary = build_dictionary["Weapon"]
+
+        for key, value in weapon_dictionary.items():
+            if value:
+                self.weapon_data["Variables"][key].set(value)
+                self.update_weapon("Weapon", self.weapon_data, key)
+                
+                if key in ["Class", "Type", "Name"]:
+                    self.after(50)
+
+                elif key == "Expertise": # MOVE TO WHERE DROPDOWNS ARE UPDATED??????????
+                    self.weapon_data["Labels"]["Expertise"].configure(text=f"Expertise: {value}")
+
+        skill_dictionaries = {
+            "Skill Left": build_dictionary["Skill Left"],
+            "Skill Right": build_dictionary["Skill Right"]
+        }
+
+        for skill_name, skill_dictionary in skill_dictionaries.items():
+            for key, value in skill_dictionary.items():
+                if value:
+                    self.skill_data[skill_name]["Variables"][key].set(value)
+                    self.update_skill(skill_name, self.skill_data[skill_name], key)
+                    
+                    if key in ["Class", "Name"]:
+                        self.after(50)
+
+                    elif key == "Expertise":
+                        self.skill_data[skill_name]["Labels"]["Expertise"].configure(text=f"Expertise: {value}")
+            
+        for gear_name in ["Mask", "Body Armor", "Holster", "Backpack", "Gloves", "Kneepads"]:
+            gear_dictionary = build_dictionary[gear_name]
+
+            for key, value in gear_dictionary.items():
+                if value:
+                    self.gear_data[gear_name]["Variables"][key].set(value)
+                    self.update_gear(gear_name, self.gear_data[gear_name], key)
+
+                    if key in ["Type", "Name"]:
+                        self.after(50)
+
+        self.toggle_sidebar_visibility()
+
+
+    def rename_build(self, build_dictionary):
+        """
+        Renames a build.
+
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+            build_dictionary: A dictionary containing the build's data.
+        
+        """
+
+        self.unbind("<Escape>")
+        build_name = build_dictionary["Build Name"]
+        
+        dialog_container = ctk.CTkFrame(self, width=400, height=135, corner_radius=10, border_width=2, border_color="gray30")
+        dialog_container.place(relx=0.5, rely=0.5, anchor="center")
+        dialog_container.pack_propagate(False)
+        
+        def close_dialog():
+            dialog_container.destroy()
+
+            if self.sidebar_visible:
+                self.bind("<Escape>", lambda event: self.toggle_sidebar_visibility())
+
+        close_button = ctk.CTkButton(dialog_container, text="✕", command=close_dialog, width=30, height=30, font=ctk.CTkFont(size=16), fg_color="transparent")
+        close_button.place(x=360, y=10)
+        
+        label = ctk.CTkLabel(dialog_container, text="Enter new build name:", font=ctk.CTkFont(size=14))
+        label.pack(pady=(20, 5))
+        
+        entry = ctk.CTkEntry(dialog_container, width=300, height=35)
+        entry.pack(pady=5)
+        entry.insert(0, build_name)
+        entry.select_range(0, "end")
+        
+        character_counter = ctk.CTkLabel(dialog_container, text=f"{len(build_name)}/20", font=ctk.CTkFont(size=12), text_color="gray60")
+        character_counter.pack(pady=(0, 10))
+        
+        def update_counter(*args):
+            text = entry.get()
+
+            if len(text) > 20:
+                entry.delete(20, "end")
+                text = entry.get()
+
+            count = len(text)
+            character_counter.configure(text=f"{count}/20")
+
+            if count == 20:
+                character_counter.configure(text_color="#ff7f27")
+
+            else:
+                character_counter.configure(text_color="gray60")
+        
+        entry.bind("<KeyRelease>", update_counter)
+        entry.focus()
+        
+        new_name = None
+        
+        def on_ok():
+            nonlocal new_name
+            text = entry.get().strip()
+
+            if text:
+                new_name = entry.get()
+                close_dialog()
+        
+        entry.bind("<Return>", lambda event: on_ok())
+        entry.bind("<Escape>", lambda event: close_dialog())
+        dialog_container.bind("<Escape>", lambda event: close_dialog())
+        
+        self.wait_window(dialog_container)
+        
+        if new_name and new_name != build_name:            
+            original_name = new_name
+            counter = 1
+            
+            while True:
+                if not (builds_directory / f"{self.sanitize_filename(new_name)}.json").exists():
+                    break
+
+                new_name = f"{original_name} ({counter})"
+                counter += 1
+            
+            build_dictionary["Build Name"] = new_name
+            
+            (builds_directory / (f"{self.sanitize_filename(build_name)}.json")).unlink()
+            
+            self.save_build_to_file(build_dictionary, builds_directory / f"{self.sanitize_filename(new_name)}.json")
+
+            self.toggle_sidebar_visibility()
+            self.toggle_sidebar_visibility()
+
+    
+    def overwrite_build(self, build_dictionary):
+        """
+        Overwrites an existing build with the current selections.
+
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+            build_dictionary: A dictionary containing the build's data.
+        
+        """
+
+        build_name = build_dictionary["Build Name"]
+        
+        file_path = builds_directory / f"{self.sanitize_filename(build_name)}.json"
+        
+        self.save_build_to_file(self.get_current_build_state(build_name), file_path)
+        
+        self.toggle_sidebar_visibility()
+        self.toggle_sidebar_visibility()
+
+    
+    def delete_build(self, build_dictionary):
+        """
+        Deletes a build file.
+
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+            build_dictionary: A dictionary containing the build's data.
+        
+        """
+
+        (builds_directory / (f"{self.sanitize_filename(build_dictionary["Build Name"])}.json")).unlink()
+
+        self.toggle_sidebar_visibility()
+        self.toggle_sidebar_visibility()
+
+
+    def sanitize_filename(self, build_name):
+        """
+        Converts a build name to a valid filename.
+
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+            build_name: The original build name.
+
+        Returns:
+            The sanitized filename.
+        
+        """
+
+        return "".join(character for character in build_name if character not in "<>:\"/\\|?*").strip()
+
+    
+    def get_current_build_state(self, build_name):
+        """
+        Retrieves the current state of all selections as a dictionary.
+
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+            build_name: The name of the build.
+
+        Returns:
+            A dictionary representing the current build state.
+        
+        """
+
+        build_dictionary = {"Build Name": build_name}        
+
+        specialization_value = self.specialization_variable.get()
+        build_dictionary["Specialization"] = None if specialization_value == "Select Specialization" else specialization_value
+
+        weapon_dictionary = {variable: None for variable in WEAPON_VARIABLES}
+
+        for variable in WEAPON_VARIABLES:
+            try:
+                value = self.weapon_data["Variables"][variable].get() # THIS WOULD CHANGE IF THE DATA WAS ALL NONE TO START
+
+            except Exception:
+                continue
+
+            if isinstance(value, str):
+                if value.startswith("Select"):
+                    continue
+            
+            weapon_dictionary[variable] = value
+    
+        build_dictionary["Weapon"] = weapon_dictionary
+
+        skill_dictionaries = {skill_slot: {variable: None for variable in SKILL_VARIABLES} for skill_slot in SKILL_SLOTS}
+        
+        for skill_slot in SKILL_SLOTS:
+            for variable in SKILL_VARIABLES:
+                try:
+                    value = self.skill_data[skill_slot]["Variables"][variable].get()
+                
+                except Exception:
+                    continue
+
+                if isinstance(value, str):
+                    if value.startswith("Select"):
+                        continue
+
+                skill_dictionaries[skill_slot][variable] = value
+
+        build_dictionary.update(skill_dictionaries)
+
+        gear_dictionaries = {gear_slot: {variable: None for variable in GEAR_VARIABLES} for gear_slot in GEAR_SLOTS}
+
+        for gear_slot in GEAR_SLOTS:
+            for variable in GEAR_VARIABLES:
+                try:
+                    value = self.gear_data[gear_slot]["Variables"][variable].get()
+                
+                except Exception:
+                    continue
+
+                if value.startswith("Select"):
+                    continue
+
+                gear_dictionaries[gear_slot][variable] = value
+
+        build_dictionary.update(gear_dictionaries)
+
+        return build_dictionary
+
+
+    def save_build_to_file(self, build_dictionary, file_path):
+        """
+        Saves given build data to a specified file path in JSON format.
+
+        Parameters:
+            self: The instance of the DamageCalculatorApp class.
+            build_dictionary: A dictionary containing the build's data.
+            file_path: The file path where the build data will be saved.
+        
+        """
+
+        with open(file_path, "w") as file:
+            json.dump(build_dictionary, file, indent=4)
+
+
+
+
+
+
+
+
+
+
+    #################### SECTION BREAK ####################
+
+    ##### TAB SETUP METHODS #####
+
+
+    def _process_names_for_specialization(self, names, specialization_value):
+        """Processing names to indicate specialization requirements:"""
+        processed_names = []
+        original_names = []
+        
+        for name in names:
+            original_names.append(name)
+            
+            if '(' in name and ')' in name:
+                # Extract base name and specialization from LAST parentheses (for weapons):
+                paren_start = name.rindex('(')
+                paren_end = name.rindex(')')
+                base_name = name[:paren_start].strip()
+                paren_content = name[paren_start+1:paren_end].strip()
+                
+                if self.is_specialization_name(paren_content):
+                    if specialization_value == paren_content:
+                        processed_names.append(base_name)
+                    else:
+                        processed_names.append(f"{base_name} (Select {paren_content})")
+                else:
+                    processed_names.append(name)
+            else:
+                processed_names.append(name)
+        
+        return processed_names, original_names
+
+
+    def _process_mods_for_specialization(self, mods, specialization_value):
+        """Processing mod names to indicate specialization requirements:"""
+        processed_mods = []
+        
+        for mod in mods:
+            if '(' in mod and ')' in mod:
+                # Extract base mod and specialization from LAST parentheses:
+                paren_start = mod.rindex('(')
+                paren_end = mod.rindex(')')
+                base_mod = mod[:paren_start].strip()
+                paren_content = mod[paren_start+1:paren_end].strip()
+                
+                if self.is_specialization_name(paren_content):
+                    if specialization_value == paren_content:
+                        processed_mods.append(base_mod)
+                    else:
+                        processed_mods.append(f"{base_mod} (Select {paren_content})")
+                else:
+                    processed_mods.append(mod)
+            else:
+                processed_mods.append(mod)
+        
+        return processed_mods
+    
+
+    def _update_skill_name_dropdown(self, skill_data, class_val, specialization_value):
+        """Updating skill name dropdown to reflect specialization availability:"""
+        if "Name" not in skill_data["Dropdowns"]:
+            return
+        
+        variant_row = data["Skill"]["Variants"][data["Skill"]["Variants"]["Class"] == class_val].iloc[0]
+        names_str = variant_row["Name"]
+        all_names = [n.strip() for n in names_str.split(';')]
+        
+        # Processing names for display:
+        processed_names, _ = self._process_names_for_specialization(all_names, specialization_value)
+        
+        # Updating dropdown with processed names:
+        current_name = skill_data["Variables"]["Name"].get()
+        if current_name != "Select Name":
+            available_names = [n for n in processed_names if n != current_name]
+        else:
+            available_names = processed_names
+        
+        skill_data["Dropdowns"]["Name"].configure(values=available_names)
+
+
+    def _reset_skill_if_specialization_mismatch(self, skill_data, specialization_value):
+        """Checking and resetting skill if it requires a different specialization:"""
+        name_val = skill_data["Variables"]["Name"].get()
+        
+        if name_val == "Select Name":
+            return False
+        
+        # Checking if skill requires a different specialization:
+        original_names = skill_data.get('original_names', [])
+        
+        for orig_name in original_names:
+            if '(' in orig_name and ')' in orig_name:
+                # Extract base name and specialization from LAST parentheses:
+                base_name = orig_name[:orig_name.rindex('(')].strip()
+                required_spec = orig_name[orig_name.rindex('(')+1:orig_name.rindex(')')].strip()
+                
+                if base_name == name_val and required_spec != specialization_value:
+                    # Resetting skill selection:
+                    skill_data["Variables"]["Name"].set("Select Name")
+                    skill_data['prev_name'] = "Select Name"
+                    
+                    # Clearing skill mods:
+                    for key in list(skill_data["Dropdowns"].keys()):
+                        if key not in ["Class", "Name"]:
+                            skill_data["Dropdowns"][key].grid_forget()
+                            del skill_data["Dropdowns"][key]
+                    for key in list(skill_data["Variables"].keys()):
+                        if key not in ["Class", "Name", "Expertise"]:
+                            del skill_data["Variables"][key]
+                    
+                    return True
+        
+        return False
+
+
+    def _update_skill_mods_for_specialization(self, skill_data, class_val, specialization_value):
+        """Updating skill mods to reflect specialization changes:"""
+        original_mods_dict = skill_data.get('original_mods', {})
+        
+        # Resetting individual mods that require different specializations:
+        for key, mod_var in list(skill_data["Variables"].items()):
+            if key.startswith("Mod "):
+                mod_val = mod_var.get()
+                original_mods = original_mods_dict.get(key, [])
+                
+                for orig_mod in original_mods:
+                    if '(' in orig_mod and ')' in orig_mod:
+                        # Extract base mod and specialization from LAST parentheses:
+                        base_mod = orig_mod[:orig_mod.rindex('(')].strip()
+                        paren_content = orig_mod[orig_mod.rindex('(')+1:orig_mod.rindex(')')].strip()
+                        
+                        if self.is_specialization_name(paren_content):
+                            if base_mod == mod_val and paren_content != specialization_value:
+                                col_index = int(key.split('_')[1]) - 1
+                                mods_sheet_name = f"{class_val} Mods"
+                                if mods_sheet_name in data["Skill"]:
+                                    mods_df = data["Skill"][mods_sheet_name]
+                                    all_columns = mods_df.columns.tolist()
+                                    mod_columns = [col for col in all_columns if col not in ['Stats', 'Last Checked']]
+                                    if col_index < len(mod_columns):
+                                        col_name = mod_columns[col_index]
+                                        mod_var.set(f"Select {col_name} Mod")
+                                        skill_data[f"Previous {key}"] = f"Select {col_name} Mod"
+                                break
+        
+        # Updating skill mod dropdown labels:
+        mods_sheet_name = f"{class_val} Mods"
+        if mods_sheet_name not in data["Skill"]:
+            return
+        
+        mods_df = data["Skill"][mods_sheet_name]
+        all_columns = mods_df.columns.tolist()
+        mod_columns = [col for col in all_columns if col not in ['Stats', 'Last Checked']]
+        
+        for i, col_name in enumerate(mod_columns):
+            key = f"Mod {i+1}"
+            if key in skill_data["Dropdowns"] and key in skill_data["Variables"]:
+                all_mods = mods_df[mods_df[col_name] == '✓']['Stats'].tolist()
+                
+                processed_mods = self._process_mods_for_specialization(all_mods, specialization_value)
+                
+                current_mod = skill_data["Variables"][key].get()
+                if current_mod not in [f"Select {col_name} Mod"]:
+                    available_mods = [m for m in processed_mods if m != current_mod]
+                else:
+                    available_mods = processed_mods
+                
+                skill_data["Dropdowns"][key].configure(values=available_mods)
+
+
+    def _update_skills_for_specialization(self, specialization_value):
+        
+        for skill_name, skill_data in self.skill_data.items():
+            class_val = skill_data["Variables"]["Class"].get()
+            
+            # Skipping if no class selected or name variable doesn't exist:
+            if class_val == "Select Class" or "Name" not in skill_data["Variables"]:
+                continue
+            
+            # Updating skill name dropdown:
+            self._update_skill_name_dropdown(skill_data, class_val, specialization_value)
+            
+            # Checking if skill needs reset:
+            skill_was_reset = self._reset_skill_if_specialization_mismatch(skill_data, specialization_value)
+            
+            # Updating skill mods only if skill wasn't reset:
+            if not skill_was_reset:
+                self._update_skill_mods_for_specialization(skill_data, class_val, specialization_value)
+
+
+    def _update_weapon_name_dropdown(self, class_val, specialization_value):
+        """Updating weapon name dropdown to reflect specialization availability:"""
+        if class_val == "Signature Weapons":
+            weapon_sheet = data["Weapon"]["Signature Weapons"]
+            all_names = [str(name) for name in weapon_sheet["Name"].tolist()]
+        else:
+            type_val = self.weapon_data["Variables"].get("Type", ctk.StringVar(value="Select Type")).get()
+            if type_val == "Select Type":
+                return
+            weapon_sheet = data["Weapon"][class_val]
+            all_names = [str(name) for name in weapon_sheet[weapon_sheet["Type"] == type_val]["Name"].tolist()]
+        
+        # Processing names for display:
+        processed_names, original_names = self._process_names_for_specialization(all_names, specialization_value)
+        
+        # Storing original names for reference:
+        if class_val == "Signature Weapons":
+            self.weapon_data["Original Weapon Names"] = original_names
+        
+        # Updating dropdown with processed names:
+        name_val = self.weapon_data["Variables"]["Name"].get()
+        if name_val != "Select Name":
+            available_names = [n for n in processed_names if n != name_val]
+        else:
+            available_names = processed_names
+        
+        self.weapon_data["Dropdowns"]["Name"].configure(values=available_names)
+
+
+    def _reset_weapon_if_specialization_mismatch(self, specialization_value):
+        """Checking and resetting weapon if it requires a different specialization:"""
+        name_val = self.weapon_data["Variables"]["Name"].get()
+        
+        if name_val == "Select Name":
+            return False
+        
+        # Checking if weapon requires a different specialization:
+        original_weapon_names = self.weapon_data.get("Original Weapon Names", [])
+        
+        for orig_name in original_weapon_names:
+            if '(' in orig_name and ')' in orig_name:
+                # Extract base name and specialization from LAST parentheses (for weapons):
+                paren_start = orig_name.rindex('(')
+                paren_end = orig_name.rindex(')')
+                base_name = orig_name[:paren_start].strip()
+                paren_content = orig_name[paren_start+1:paren_end].strip()
+                
+                if self.is_specialization_name(paren_content):
+                    if base_name == name_val and paren_content != specialization_value:
+                        # Resetting weapon selection:
+                        self.weapon_data["Variables"]["Name"].set("Select Name")
+                        self.weapon_data["Previous Name"] = "Select Name"
+                        self.weapon_data["Matched Weapon Name"] = "Select Name"
+                        
+                        # Clearing weapon attributes, mods, and talents:
+                        for key in list(self.weapon_data["Dropdowns"].keys()):
+                            if key not in ["Class", "Type", "Name"]:
+                                self.weapon_data["Dropdowns"][key].grid_forget()
+                                del self.weapon_data["Dropdowns"][key]
+                        for key in list(self.weapon_data["Variables"].keys()):
+                            if key not in ["Class", "Type", "Name"]:
+                                del self.weapon_data["Variables"][key]
+                        
+                        return True
+        
+        return False
+
+
+    def _update_weapon_mods_for_specialization(self, specialization_value):
+        """Updating weapon mods to reflect specialization changes:"""
+        original_weapon_mods_dict = self.weapon_data.get("Original Weapon Mods", {})
+        
+        # Resetting individual mods that require different specializations:
+        for key, mod_var in list(self.weapon_data["Variables"].items()):
+            if key in ["Optics Mod", "Magazine Mod", "Underbarrel Mod", "Muzzle Mod"]:
+                mod_val = mod_var.get()
+                original_mods = original_weapon_mods_dict.get(key, [])
+                
+                for orig_mod in original_mods:
+                    if '(' in orig_mod and ')' in orig_mod:
+                        # Extract base mod and specialization from LAST parentheses:
+                        paren_start = orig_mod.rindex('(')
+                        paren_end = orig_mod.rindex(')')
+                        base_mod = orig_mod[:paren_start].strip()
+                        paren_content = orig_mod[paren_start+1:paren_end].strip()
+                        
+                        if self.is_specialization_name(paren_content):
+                            if base_mod == mod_val and paren_content != specialization_value:
+                                mod_var.set(f"Select {key}")
+                                self.weapon_data[f"Previous {key}"] = f"Select {key}"
+                                break
+        
+        # Updating weapon mod dropdown labels:
+        name_val = self.weapon_data["Variables"]["Name"].get()
+        class_val = self.weapon_data["Variables"]["Class"].get()
+        
+        if name_val == "Select Name" or "Matched Weapon Name" not in self.weapon_data:
+            return
+        
+        weapon_sheet = data["Weapon"][class_val]
+        type_val = self.weapon_data["Variables"].get("Type", ctk.StringVar(value="Select Type")).get()
+        
+        if type_val == "Select Type":
+            return
+        
+        lookup_name = self.weapon_data.get("Matched Weapon Name", name_val)
+        
+        if lookup_name == "Select Name":
+            return
+        
+        weapon_rows = weapon_sheet[(weapon_sheet["Name"] == lookup_name) & (weapon_sheet["Type"] == type_val)]
+        if weapon_rows.empty:
+            return
+        
+        weapon_row = weapon_rows.iloc[0]
+        
+        mod_types = [
+            ("Optics Mod", "Optics Mods"),
+            ("Magazine Mod", "Magazine Mods"),
+            ("Underbarrel Mod", "Underbarrel Mods"),
+            ("Muzzle Mod", "Muzzle Mods")
+        ]
+        
+        for i, (column_name, sheet_name) in enumerate(mod_types, start=1):
+            if column_name in self.weapon_data["Dropdowns"] and column_name in self.weapon_data["Variables"]:
+                mod_cell = weapon_row.get(column_name, pd.NA)
+                if not pd.isna(mod_cell) and isinstance(mod_cell, str) and mod_cell.startswith("*"):
+                    mod_rail = mod_cell[1:]
+                    
+                    if sheet_name in data["Weapon"]:
+                        mods_df = data["Weapon"][sheet_name]
+                        if mod_rail in mods_df.columns:
+                            all_mods = mods_df[mods_df[mod_rail] == '✓']['Stats'].tolist()
+                            
+                            processed_mods = self._process_mods_for_specialization(all_mods, specialization_value)
+                            
+                            current_mod = self.weapon_data["Variables"][column_name].get()
+                            if current_mod not in [f"Select {column_name}"]:
+                                available_mods = [m for m in processed_mods if m != current_mod]
+                            else:
+                                available_mods = processed_mods
+                            
+                            self.weapon_data["Dropdowns"][column_name].configure(values=available_mods)
+
+
+    def _update_weapon_for_specialization(self, specialization_value):
+
+        if not hasattr(self, 'weapon_data'):
+            return
+        
+        class_val = self.weapon_data["Variables"]["Class"].get()
+        
+        if class_val == "Select Class":
+            return
+        
+        # Updating weapon name dropdown if it exists:
+        if "Name" in self.weapon_data["Dropdowns"]:
+            self._update_weapon_name_dropdown(class_val, specialization_value)
+        
+        # Checking if selected weapon needs reset:
+        if "Name" in self.weapon_data["Variables"]:
+            weapon_was_reset = self._reset_weapon_if_specialization_mismatch(specialization_value)
+            
+            # Updating weapon mods only if weapon wasn't reset:
+            if not weapon_was_reset:
+                self._update_weapon_mods_for_specialization(specialization_value)
+
+
+    def update_specialization(self, specialization_variable, specialization_dropdown):
+        
+        # Retrieving the current specialization selection:
+        specialization_value = specialization_variable.get()
+
+        # Updating the specialization dropdown to exclude the current selection:
+        specialization_dropdown.configure(values=[specialization for specialization in SPECIALIZATIONS if specialization != specialization_value])
+        
+        # Propagating specialization changes to skills and weapon:
+        self._update_skills_for_specialization(specialization_value)
+        self._update_weapon_for_specialization(specialization_value)
+
     
     def update_all_type_dropdowns(self):
         """Update all gear type dropdowns to handle Exotic exclusivity"""
@@ -685,8 +1335,8 @@ class DamageCalculatorApp(ctk.CTk):
         
         # Check if any gear piece has Exotic selected
         has_exotic = any(
-            gear_data['variables']['type'].get() == "Exotic" 
-            for gear_data in self.gear_sections.values()
+            gear_data["Variables"]["Type"].get() == "Exotic" 
+            for gear_data in self.gear_data.values()
         )
         
         # Determine available types
@@ -696,9 +1346,9 @@ class DamageCalculatorApp(ctk.CTk):
             base_types = ["Improvised", "Brand Set", "Gear Set", "Named", "Exotic"]
         
         # Update each gear's type dropdown
-        for gear_name, gear_data in self.gear_sections.items():
-            current_type = gear_data['variables']['type'].get()
-            type_dropdown = gear_data['dropdowns']['type']
+        for gear_name, gear_data in self.gear_data.items():
+            current_type = gear_data["Variables"]["Type"].get()
+            type_dropdown = gear_data["Dropdowns"]["Type"]
             
             # Start with base types (already accounts for Exotic exclusivity)
             # Then exclude the current selection from the available options
@@ -707,71 +1357,81 @@ class DamageCalculatorApp(ctk.CTk):
             # Update the dropdown values
             type_dropdown.configure(values=available_types)
     
-    def update_gear(self, gear_name, gear_data):
-        """Dynamically update gear dropdowns based on selections"""
-        type_val = gear_data['variables']['type'].get()
-        frame = gear_data['frame']
+    def update_gear(self, gear_name, gear_data, trigger_point="Type", preserve_selections=True):
+        """Dynamically update gear dropdowns based on selections
+        
+        Args:
+            gear_name: Name of the gear slot (e.g., 'Mask', 'Holster')
+            gear_data: Dictionary containing gear state and UI elements
+            trigger_point: Which dropdown triggered this update ("Type" or "Name")
+            preserve_selections: Whether to preserve existing attribute/mod selections
+        """
+        type_val = gear_data["Variables"]["Type"].get()
+        frame = gear_data["Frame"]
         
         # Update ALL type dropdowns to handle Exotic exclusivity
         self.update_all_type_dropdowns()
         
-        # Clear existing dropdowns except type
-        self.update_all_type_dropdowns()
-        
-        # Clear existing dropdowns except type
-        for key in list(gear_data['dropdowns'].keys()):
-            if key != 'type':
-                gear_data['dropdowns'][key].grid_forget()
-                del gear_data['dropdowns'][key]
-        for key in list(gear_data['variables'].keys()):
-            if key != 'type':
-                del gear_data['variables'][key]
-        
-        row_idx = 1
-        
-        # Name dropdown
-        name_var = ctk.StringVar()
-        
-        if type_val == "Improvised":
-            # Improvised has fixed name
-            name_var.set(f"Improvised {gear_name}")
-            name_dropdown = ctk.CTkComboBox(frame, values=[f"Improvised {gear_name}"], variable=name_var, state="disabled")
-        else:
-            # Get names based on type
-            if type_val == "Brand Set":
-                names = data["Armor"]["Brand Sets"]["Name"].tolist()
-            elif type_val == "Gear Set":
-                names = data["Armor"]["Gear Sets"]["Name"].tolist()
-            elif type_val == "Named":
-                names = data["Armor"]["Named"][data["Armor"]["Named"]["Slot"] == gear_name]["Name"].tolist()
-            elif type_val == "Exotic":
-                names = data["Armor"]["Exotic"][data["Armor"]["Exotic"]["Slot"] == gear_name]["Name"].tolist()
-            else:
-                names = []
+        # Handle type selection (trigger_point == "Type")
+        if trigger_point == "Type":
+            # Clear existing dropdowns except type
+            for key in list(gear_data["Dropdowns"].keys()):
+                if key != "Type":
+                    gear_data["Dropdowns"][key].grid_forget()
+                    del gear_data["Dropdowns"][key]
+            for key in list(gear_data["Variables"].keys()):
+                if key != "Type":
+                    del gear_data["Variables"][key]
             
-            name_var.set("Select Name")
-            name_dropdown = ctk.CTkComboBox(
-                frame,
-                values=names,
-                variable=name_var,
-                command=lambda choice: self.update_gear_attributes(gear_name, gear_data),
-                state="readonly"
-            )
+            row_idx = 1
+            
+            # Name dropdown
+            name_var = ctk.StringVar()
+            
+            if type_val == "Improvised":
+                # Improvised has fixed name
+                name_var.set(f"Improvised {gear_name}")
+                name_dropdown = ctk.CTkComboBox(frame, values=[f"Improvised {gear_name}"], variable=name_var, state="disabled")
+            else:
+                # Get names based on type
+                if type_val == "Brand Set":
+                    names = data["Armor"]["Brand Sets"]["Name"].tolist()
+                elif type_val == "Gear Set":
+                    names = data["Armor"]["Gear Sets"]["Name"].tolist()
+                elif type_val == "Named":
+                    names = data["Armor"]["Named"][data["Armor"]["Named"]["Slot"] == gear_name]["Name"].tolist()
+                elif type_val == "Exotic":
+                    names = data["Armor"]["Exotic"][data["Armor"]["Exotic"]["Slot"] == gear_name]["Name"].tolist()
+                else:
+                    names = []
+                
+                name_var.set("Select Name")
+                name_dropdown = ctk.CTkComboBox(
+                    frame,
+                    values=names,
+                    variable=name_var,
+                    command=lambda choice: self.update_gear(gear_name, gear_data, trigger_point="Name"),
+                    state="readonly"
+                )
+            
+            name_dropdown.grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
+            gear_data["Variables"]["Name"] = name_var
+            gear_data["Dropdowns"]["Name"] = name_dropdown
+            row_idx += 1
+            
+            # If Improvised, automatically update attributes
+            if type_val == "Improvised":
+                self._update_gear_attributes(gear_name, gear_data, preserve_selections=False)
         
-        name_dropdown.grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
-        gear_data['variables']['name'] = name_var
-        gear_data['dropdowns']['name'] = name_dropdown
-        row_idx += 1
-        
-        # If Improvised, automatically update attributes
-        if type_val == "Improvised":
-            self.update_gear_attributes(gear_name, gear_data, preserve_selections=False)
+        # Handle name selection (trigger_point == "Name")
+        elif trigger_point == "Name":
+            self._update_gear_attributes(gear_name, gear_data, preserve_selections)
     
-    def update_gear_attributes(self, gear_name, gear_data, preserve_selections=True):
-        """Update core attributes, attributes, mods, and talents based on gear selection"""
-        type_val = gear_data['variables']['type'].get()
-        name_val = gear_data['variables']['name'].get()
-        frame = gear_data['frame']
+    def _update_gear_attributes(self, gear_name, gear_data, preserve_selections=True):
+        """Internal helper: Update core attributes, attributes, mods, and talents based on gear selection"""
+        type_val = gear_data["Variables"]["Type"].get()
+        name_val = gear_data["Variables"]["Name"].get()
+        frame = gear_data["Frame"]
         
         if name_val in ["Select Name", "Select Type"]:
             return
@@ -779,18 +1439,18 @@ class DamageCalculatorApp(ctk.CTk):
         # Preserve existing selections if requested
         saved_selections = {}
         if preserve_selections:
-            for key, var in gear_data['variables'].items():
-                if key not in ['type', 'name']:
+            for key, var in gear_data["Variables"].items():
+                if key not in ["Type", "Name"]:
                     saved_selections[key] = var.get()
         
         # Clear existing attribute dropdowns
-        for key in list(gear_data['dropdowns'].keys()):
-            if key not in ['type', 'name']:
-                gear_data['dropdowns'][key].grid_forget()
-                del gear_data['dropdowns'][key]
-        for key in list(gear_data['variables'].keys()):
-            if key not in ['type', 'name']:
-                del gear_data['variables'][key]
+        for key in list(gear_data["Dropdowns"].keys()):
+            if key not in ["Type", "Name"]:
+                gear_data["Dropdowns"][key].grid_forget()
+                del gear_data["Dropdowns"][key]
+        for key in list(gear_data["Variables"].keys()):
+            if key not in ["Type", "Name"]:
+                del gear_data["Variables"][key]
         
         row_idx = 2
         
@@ -824,9 +1484,9 @@ class DamageCalculatorApp(ctk.CTk):
         # This ensures switching from Named/Exotic gear doesn't leave invalid values
         
         # Validate core attributes
-        all_cores = ["15.0% Weapon Damage", "170,000 Armor", "1 Skill Tier"]
+        all_cores = GEAR_CORE_ATTRIBUTES
         for i, cell_val in enumerate(core_cells):
-            key = f'core_{i+1}'
+            key = f"Core Attribute {i+1}"
             if key in saved_selections and saved_selections[key] not in ["Select Core Attribute"]:
                 if pd.isna(cell_val):
                     saved_selections[key] = "Select Core Attribute"
@@ -842,7 +1502,7 @@ class DamageCalculatorApp(ctk.CTk):
         # Validate attributes
         all_attrs = data["Armor"]["Attributes"]["Stats"].tolist()
         for i, cell_val in enumerate(attr_cells):
-            key = f'attr_{i+1}'
+            key = f"Attribute {i+1}"
             if key in saved_selections and saved_selections[key] not in ["Select Attribute"]:
                 if pd.isna(cell_val):
                     saved_selections[key] = "Select Attribute"
@@ -864,7 +1524,7 @@ class DamageCalculatorApp(ctk.CTk):
         # Validate mods
         all_mods = data["Armor"]["Mods"]["Stats"].tolist()
         for i, cell_val in enumerate(mod_cells):
-            key = f'mod_{i+1}'
+            key = f"Mod {i+1}"
             if key in saved_selections and saved_selections[key] not in ["Select Mod"]:
                 if pd.isna(cell_val):
                     saved_selections[key] = "Select Mod"
@@ -873,7 +1533,7 @@ class DamageCalculatorApp(ctk.CTk):
         
         # Validate talents
         for i, cell_val in enumerate(talent_cells):
-            key = f'talent_{i+1}'
+            key = f"Talent {i+1}"
             if key in saved_selections and saved_selections[key] not in ["Select Talent"]:
                 if pd.isna(cell_val):
                     saved_selections[key] = "Select Talent"
@@ -890,7 +1550,7 @@ class DamageCalculatorApp(ctk.CTk):
         for i, cell_val in enumerate(core_cells):
             if pd.isna(cell_val):
                 continue
-            key = f'core_{i+1}'
+            key = f"Core Attribute {i+1}"
             # Fixed values always override saved selections
             if isinstance(cell_val, str) and cell_val not in ["*"] and not cell_val.startswith("!"):
                 final_core_values[key] = cell_val
@@ -902,7 +1562,7 @@ class DamageCalculatorApp(ctk.CTk):
         for i, cell_val in enumerate(attr_cells):
             if pd.isna(cell_val):
                 continue
-            key = f'attr_{i+1}'
+            key = f"Attribute {i+1}"
             # Fixed values always override saved selections
             if isinstance(cell_val, str) and cell_val not in ["*"] and not cell_val.startswith("!") and not cell_val.startswith("*"):
                 final_attr_values[key] = cell_val
@@ -916,46 +1576,46 @@ class DamageCalculatorApp(ctk.CTk):
                 continue
             
             # Use final value for this slot
-            key = f'core_{i+1}'
+            key = f"Core Attribute {i+1}"
             saved_value = final_core_values[key]
             core_var = ctk.StringVar(value=saved_value)
             
             if cell_val == "*":
                 # User can select any core attribute
                 # Exclude final values from OTHER core slots (not this one)
-                current_selections = [final_core_values[f'core_{j+1}'] 
+                current_selections = [final_core_values[f"Core Attribute {j + 1}"] 
                                      for j in range(len(core_cells)) 
-                                     if j != i and f'core_{j+1}' in final_core_values 
-                                     and final_core_values[f'core_{j+1}'] not in ["Select Core Attribute"]]
+                                     if j != i and f"Core Attribute {j + 1}" in final_core_values 
+                                     and final_core_values[f"Core Attribute {j + 1}"] not in ["Select Core Attribute"]]
                 # Also exclude this dropdown's own current selection
                 if saved_value not in ["Select Core Attribute"]:
                     current_selections.append(saved_value)
-                available_cores = [c for c in ["15.0% Weapon Damage", "170,000 Armor", "1 Skill Tier"] 
+                available_cores = [c for c in GEAR_CORE_ATTRIBUTES 
                                   if c not in current_selections]
                 core_dropdown = ctk.CTkComboBox(
                     frame, 
                     values=available_cores, 
                     variable=core_var,
-                    command=lambda choice, gear=gear_name, gdata=gear_data: self.update_gear_attributes(gear, gdata, preserve_selections=True),
+                    command=lambda choice, gear=gear_name, gdata=gear_data: self._update_gear_attributes(gear, gdata, preserve_selections=True),
                     state="readonly"
                 )
             elif isinstance(cell_val, str) and cell_val.startswith("!"):
                 # Cannot select this specific one
                 excluded = cell_val[1:]
-                current_selections = [final_core_values[f'core_{j+1}'] 
+                current_selections = [final_core_values[f"Core Attribute {j + 1}"] 
                                      for j in range(len(core_cells)) 
-                                     if j != i and f'core_{j+1}' in final_core_values 
-                                     and final_core_values[f'core_{j+1}'] not in ["Select Core Attribute"]]
+                                     if j != i and f"Core Attribute {j + 1}" in final_core_values 
+                                     and final_core_values[f"Core Attribute {j + 1}"] not in ["Select Core Attribute"]]
                 # Also exclude this dropdown's own current selection
                 if saved_value not in ["Select Core Attribute"]:
                     current_selections.append(saved_value)
-                available_cores = [c for c in ["15.0% Weapon Damage", "170,000 Armor", "1 Skill Tier"] 
+                available_cores = [c for c in GEAR_CORE_ATTRIBUTES 
                                   if c != excluded and c not in current_selections]
                 core_dropdown = ctk.CTkComboBox(
                     frame, 
                     values=available_cores, 
                     variable=core_var,
-                    command=lambda choice, gear=gear_name, gdata=gear_data: self.update_gear_attributes(gear, gdata, preserve_selections=True),
+                    command=lambda choice, gear=gear_name, gdata=gear_data: self._update_gear_attributes(gear, gdata, preserve_selections=True),
                     state="readonly"
                 )
             else:
@@ -964,8 +1624,8 @@ class DamageCalculatorApp(ctk.CTk):
                 core_dropdown = ctk.CTkComboBox(frame, values=[cell_val], variable=core_var, state="disabled")
             
             core_dropdown.grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
-            gear_data['variables'][f'core_{i+1}'] = core_var
-            gear_data['dropdowns'][f'core_{i+1}'] = core_dropdown
+            gear_data["Variables"][f"Core Attribute {i+1}"] = core_var
+            gear_data["Dropdowns"][f"Core Attribute {i+1}"] = core_dropdown
             row_idx += 1
         
         # Attributes
@@ -974,17 +1634,17 @@ class DamageCalculatorApp(ctk.CTk):
                 continue
             
             # Use final value for this slot
-            key = f'attr_{i+1}'
+            key = f"Attribute {i+1}"
             saved_value = final_attr_values[key]
             attr_var = ctk.StringVar(value=saved_value)
             
             if cell_val == "*":
                 # User can select any attribute
                 # Exclude final values from OTHER attribute slots (not this one)
-                current_selections = [final_attr_values[f'attr_{j+1}'] 
+                current_selections = [final_attr_values[f"Attribute {j + 1}"] 
                                      for j in range(len(attr_cells)) 
-                                     if j != i and f'attr_{j+1}' in final_attr_values 
-                                     and final_attr_values[f'attr_{j+1}'] not in ["Select Attribute"]]
+                                     if j != i and f"Attribute {j + 1}" in final_attr_values 
+                                     and final_attr_values[f"Attribute {j + 1}"] not in ["Select Attribute"]]
                 # Also exclude this dropdown's own current selection
                 if saved_value not in ["Select Attribute"]:
                     current_selections.append(saved_value)
@@ -994,16 +1654,16 @@ class DamageCalculatorApp(ctk.CTk):
                     frame, 
                     values=available_attrs, 
                     variable=attr_var,
-                    command=lambda choice, gear=gear_name, gdata=gear_data: self.update_gear_attributes(gear, gdata, preserve_selections=True),
+                    command=lambda choice, gear=gear_name, gdata=gear_data: self._update_gear_attributes(gear, gdata, preserve_selections=True),
                     state="readonly"
                 )
             elif isinstance(cell_val, str) and cell_val.startswith("*") and len(cell_val) > 1:
                 # Specific type of attribute (e.g., "*Offensive")
                 attr_type = cell_val[1:]
-                current_selections = [final_attr_values[f'attr_{j+1}'] 
+                current_selections = [final_attr_values[f"Attribute {j + 1}"] 
                                      for j in range(len(attr_cells)) 
-                                     if j != i and f'attr_{j+1}' in final_attr_values 
-                                     and final_attr_values[f'attr_{j+1}'] not in ["Select Attribute"]]
+                                     if j != i and f"Attribute {j + 1}" in final_attr_values 
+                                     and final_attr_values[f"Attribute {j + 1}"] not in ["Select Attribute"]]
                 # Also exclude this dropdown's own current selection
                 if saved_value not in ["Select Attribute"]:
                     current_selections.append(saved_value)
@@ -1013,16 +1673,16 @@ class DamageCalculatorApp(ctk.CTk):
                     frame, 
                     values=available_attrs, 
                     variable=attr_var,
-                    command=lambda choice, gear=gear_name, gdata=gear_data: self.update_gear_attributes(gear, gdata, preserve_selections=True),
+                    command=lambda choice, gear=gear_name, gdata=gear_data: self._update_gear_attributes(gear, gdata, preserve_selections=True),
                     state="readonly"
                 )
             elif isinstance(cell_val, str) and cell_val.startswith("!"):
                 # Cannot select this specific one
                 excluded = cell_val[1:]
-                current_selections = [final_attr_values[f'attr_{j+1}'] 
+                current_selections = [final_attr_values[f"Attribute {j + 1}"] 
                                      for j in range(len(attr_cells)) 
-                                     if j != i and f'attr_{j+1}' in final_attr_values 
-                                     and final_attr_values[f'attr_{j+1}'] not in ["Select Attribute"]]
+                                     if j != i and f"Attribute {j + 1}" in final_attr_values 
+                                     and final_attr_values[f"Attribute {j + 1}"] not in ["Select Attribute"]]
                 # Also exclude this dropdown's own current selection
                 if saved_value not in ["Select Attribute"]:
                     current_selections.append(saved_value)
@@ -1032,7 +1692,7 @@ class DamageCalculatorApp(ctk.CTk):
                     frame, 
                     values=available_attrs, 
                     variable=attr_var,
-                    command=lambda choice, gear=gear_name, gdata=gear_data: self.update_gear_attributes(gear, gdata, preserve_selections=True),
+                    command=lambda choice, gear=gear_name, gdata=gear_data: self._update_gear_attributes(gear, gdata, preserve_selections=True),
                     state="readonly"
                 )
             else:
@@ -1041,8 +1701,8 @@ class DamageCalculatorApp(ctk.CTk):
                 attr_dropdown = ctk.CTkComboBox(frame, values=[cell_val], variable=attr_var, state="disabled")
             
             attr_dropdown.grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
-            gear_data['variables'][f'attr_{i+1}'] = attr_var
-            gear_data['dropdowns'][f'attr_{i+1}'] = attr_dropdown
+            gear_data["Variables"][f"Attribute {i+1}"] = attr_var
+            gear_data["Dropdowns"][f"Attribute {i+1}"] = attr_dropdown
             row_idx += 1
         
         # Mods
@@ -1050,7 +1710,7 @@ class DamageCalculatorApp(ctk.CTk):
             if pd.isna(cell_val):
                 continue
             
-            saved_value = saved_selections.get(f'mod_{i+1}', "Select Mod")
+            saved_value = saved_selections.get(f"Mod {i+1}", "Select Mod")
             mod_var = ctk.StringVar(value=saved_value)
             
             # Get all available mods and exclude this dropdown's current selection
@@ -1064,12 +1724,12 @@ class DamageCalculatorApp(ctk.CTk):
                 frame, 
                 values=available_mods, 
                 variable=mod_var, 
-                command=lambda choice, gear=gear_name, gdata=gear_data: self.update_gear_attributes(gear, gdata, preserve_selections=True),
+                command=lambda choice, gear=gear_name, gdata=gear_data: self._update_gear_attributes(gear, gdata, preserve_selections=True),
                 state="readonly"
             )
             mod_dropdown.grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
-            gear_data['variables'][f'mod_{i+1}'] = mod_var
-            gear_data['dropdowns'][f'mod_{i+1}'] = mod_dropdown
+            gear_data["Variables"][f"Mod {i+1}"] = mod_var
+            gear_data["Dropdowns"][f"Mod {i+1}"] = mod_dropdown
             row_idx += 1
         
         # Talents
@@ -1077,7 +1737,7 @@ class DamageCalculatorApp(ctk.CTk):
             if pd.isna(cell_val):
                 continue
             
-            saved_value = saved_selections.get(f'talent_{i+1}', "Select Talent")
+            saved_value = saved_selections.get(f"Talent {i+1}", "Select Talent")
             talent_var = ctk.StringVar(value=saved_value)
             
             if cell_val == "*":
@@ -1092,7 +1752,7 @@ class DamageCalculatorApp(ctk.CTk):
                     frame, 
                     values=available_talents, 
                     variable=talent_var,
-                    command=lambda choice, gear=gear_name, gdata=gear_data: self.update_gear_attributes(gear, gdata, preserve_selections=True),
+                    command=lambda choice, gear=gear_name, gdata=gear_data: self._update_gear_attributes(gear, gdata, preserve_selections=True),
                     state="readonly"
                 )
             elif type_val == "Gear Set":
@@ -1105,91 +1765,14 @@ class DamageCalculatorApp(ctk.CTk):
                 talent_dropdown = ctk.CTkComboBox(frame, values=[cell_val], variable=talent_var, state="disabled")
             
             talent_dropdown.grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
-            gear_data['variables'][f'talent_{i+1}'] = talent_var
-            gear_data['dropdowns'][f'talent_{i+1}'] = talent_dropdown
+            gear_data["Variables"][f"Talent {i+1}"] = talent_var
+            gear_data["Dropdowns"][f"Talent {i+1}"] = talent_dropdown
             row_idx += 1
     
-    def create_skill_section(self, parent, skill_name, icon_file, row_num, column_num):
-        """Create a skill section with dropdown fields"""
-        # Main frame for this skill with slight visual separation
-        skill_frame = ctk.CTkFrame(parent, border_width=2)
-        skill_frame.grid(row=row_num, column=column_num, sticky="nsew", padx=10, pady=(20, 10))
-        skill_frame.grid_columnconfigure(1, weight=1)
-        skill_frame.grid_rowconfigure(0, weight=1)
-        
-        # Try to load and display icon - centered vertically
-        try:
-            from PIL import Image
-            icon_path = assets_directory / icon_file
-            if icon_path.exists():
-                icon_image = ctk.CTkImage(
-                    light_image=Image.open(icon_path),
-                    dark_image=Image.open(icon_path),
-                    size=(40, 40)
-                )
-                icon_label = ctk.CTkLabel(skill_frame, image=icon_image, text="")
-                # Empty sticky means center both horizontally and vertically
-                icon_label.grid(row=0, column=0, padx=10, pady=10, sticky="")
-        except:
-            pass
-        
-        # Create inner grid frame for dropdowns
-        dropdown_frame = ctk.CTkFrame(skill_frame)
-        dropdown_frame.grid(row=0, column=1, sticky="ew", padx=10, pady=10)
-        dropdown_frame.grid_columnconfigure(0, weight=1)
-        
-        # Store references to all dropdowns for this skill
-        skill_data = {
-            'name': skill_name,
-            'frame': dropdown_frame,
-            'dropdowns': {},
-            'variables': {},
-            'expertise_var': None,
-            'expertise_label': None
-        }
-        
-        # Class dropdown - always shown
-        class_var = ctk.StringVar(value="Select Class")
-        class_values = data["Skill"]["Variants"]["Class"].tolist()
-        class_dropdown = ctk.CTkComboBox(
-            dropdown_frame,
-            values=class_values,
-            variable=class_var,
-            command=lambda choice: self.update_skill(skill_name, skill_data),
-            state="readonly"
-        )
-        class_dropdown.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
-        
-        skill_data['variables']['class'] = class_var
-        skill_data['dropdowns']['class'] = class_dropdown
-        
-        # Add expertise slider at the bottom
-        expertise_var = ctk.IntVar(value=30)
-        expertise_label = ctk.CTkLabel(dropdown_frame, text=f"Expertise: 30")
-        expertise_label.grid(row=100, column=0, padx=5, pady=(10, 2), sticky="w")
-        
-        expertise_slider = ctk.CTkSlider(
-            dropdown_frame,
-            from_=0,
-            to=30,
-            number_of_steps=30,
-            variable=expertise_var,
-            command=lambda value: expertise_label.configure(text=f"Expertise: {int(value)}")
-        )
-        expertise_slider.grid(row=101, column=0, padx=5, pady=(0, 5), sticky="ew")
-        
-        skill_data['expertise_var'] = expertise_var
-        skill_data['expertise_label'] = expertise_label
-        
-        # Store skill_data for later access
-        if not hasattr(self, 'skill_sections'):
-            self.skill_sections = {}
-        self.skill_sections[skill_name] = skill_data
     
     def is_specialization_name(self, text):
         """Check if the given text is a valid specialization name"""
-        specializations = ["Demolitionist", "Firewall", "Gunner", "Sharpshooter", "Survivalist", "Technician"]
-        return text in specializations
+        return text in SPECIALIZATIONS
     
     def update_all_skill_class_dropdowns(self):
         """Update all skill class dropdowns to handle class exclusivity"""
@@ -1200,17 +1783,17 @@ class DamageCalculatorApp(ctk.CTk):
         all_classes = data["Skill"]["Variants"]["Class"].tolist()
         
         # Update each skill's class dropdown
-        for skill_name, skill_data in self.skill_sections.items():
-            current_class = skill_data['variables']['class'].get()
-            class_dropdown = skill_data['dropdowns']['class']
+        for skill_name, skill_data in self.skill_data.items():
+            current_class = skill_data["Variables"]["Class"].get()
+            class_dropdown = skill_data["Dropdowns"]["Class"]
             
             # Start with all classes
             available_classes = all_classes.copy()
             
             # Exclude classes selected in OTHER skills
-            for other_skill_name, other_skill_data in self.skill_sections.items():
+            for other_skill_name, other_skill_data in self.skill_data.items():
                 if other_skill_name != skill_name:
-                    other_class = other_skill_data['variables']['class'].get()
+                    other_class = other_skill_data["Variables"]["Class"].get()
                     if other_class != "Select Class" and other_class in available_classes:
                         available_classes.remove(other_class)
             
@@ -1221,10 +1804,17 @@ class DamageCalculatorApp(ctk.CTk):
             # Update the dropdown values
             class_dropdown.configure(values=available_classes)
     
-    def update_skill(self, skill_name, skill_data):
-        """Dynamically update skill dropdowns based on selections"""
-        class_val = skill_data['variables']['class'].get()
-        frame = skill_data['frame']
+    def update_skill(self, skill_name, skill_data, trigger_point="Class", preserve_selections=True):
+        """Dynamically update skill dropdowns based on selections
+        
+        Args:
+            skill_name: Name of the skill slot (e.g., 'Skill 1')
+            skill_data: Dictionary containing skill state and UI elements
+            trigger_point: Which dropdown triggered this update ("Class", "Name", or "Mod")
+            preserve_selections: Whether to preserve existing mod selections
+        """
+        class_val = skill_data["Variables"]["Class"].get()
+        frame = skill_data["Frame"]
         
         # Update ALL skill class dropdowns to handle exclusivity
         self.update_all_skill_class_dropdowns()
@@ -1232,63 +1822,76 @@ class DamageCalculatorApp(ctk.CTk):
         if class_val == "Select Class":
             return
         
-        # Clear existing dropdowns except class
-        for key in list(skill_data['dropdowns'].keys()):
-            if key != 'class':
-                skill_data['dropdowns'][key].grid_forget()
-                del skill_data['dropdowns'][key]
-        for key in list(skill_data['variables'].keys()):
-            if key != 'class':
-                del skill_data['variables'][key]
-        
-        row_idx = 1
-        
-        # Name dropdown - get names from Variants sheet
-        variant_row = data["Skill"]["Variants"][data["Skill"]["Variants"]["Class"] == class_val].iloc[0]
-        names_str = variant_row["Name"]
-        names = [n.strip() for n in names_str.split(';')]
-        
-        # Process names to handle specialization requirements
-        processed_names = []
-        spec_val = self.specialization_var.get() if hasattr(self, 'specialization_var') else "Select Specialization"
-        
-        for name in names:
-            # Check if name has specialization requirement (contains parentheses)
-            if '(' in name and ')' in name:
-                # Extract base name and required specialization
-                base_name = name[:name.index('(')].strip()
-                required_spec = name[name.index('(')+1:name.index(')')].strip()
-                
-                # Check if user has the required specialization
-                if spec_val == required_spec:
-                    # User has correct spec, show just the base name
-                    processed_names.append(base_name)
+        # Handle class selection (trigger_point == "Class")
+        if trigger_point == "Class":
+            # Clear existing dropdowns except class
+            for key in list(skill_data["Dropdowns"].keys()):
+                if key != "Class":
+                    skill_data["Dropdowns"][key].grid_forget()
+                    del skill_data["Dropdowns"][key]
+            for key in list(skill_data["Variables"].keys()):
+                if key not in ["Class", "Expertise"]:
+                    del skill_data["Variables"][key]
+            
+            row_idx = 1
+            
+            # Name dropdown - get names from Variants sheet
+            variant_row = data["Skill"]["Variants"][data["Skill"]["Variants"]["Class"] == class_val].iloc[0]
+            names_str = variant_row["Name"]
+            names = [n.strip() for n in names_str.split(';')]
+            
+            # Process names to handle specialization requirements
+            processed_names = []
+            spec_val = self.specialization_variable.get() if hasattr(self, 'specialization_variable') else "Select Specialization"
+            
+            for name in names:
+                # Check if name has specialization requirement (contains parentheses)
+                if '(' in name and ')' in name:
+                    # Extract base name and required specialization from LAST parentheses:
+                    base_name = name[:name.rindex('(')].strip()
+                    required_spec = name[name.rindex('(')+1:name.rindex(')')].strip()
+                    
+                    # Check if user has the required specialization
+                    if spec_val == required_spec:
+                        # User has correct spec, show just the base name
+                        processed_names.append(base_name)
+                    else:
+                        # User doesn't have the spec, show with "Select X" indicator
+                        processed_names.append(f"{base_name} (Select {required_spec})")
                 else:
-                    # User doesn't have the spec, show with "Select X" indicator
-                    processed_names.append(f"{base_name} (Select {required_spec})")
-            else:
-                # No specialization requirement
-                processed_names.append(name)
+                    # No specialization requirement
+                    processed_names.append(name)
+            
+            name_var = ctk.StringVar(value="Select Name")
+            name_dropdown = ctk.CTkComboBox(
+                frame,
+                values=processed_names,
+                variable=name_var,
+                command=lambda choice: self.update_skill(skill_name, skill_data, trigger_point="Name"),
+                state="readonly"
+            )
+            name_dropdown.grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
+            skill_data["Variables"]["Name"] = name_var
+            skill_data["Dropdowns"]["Name"] = name_dropdown
+            
+            # Store original names for reference
+            skill_data['original_names'] = names
+            return
         
-        name_var = ctk.StringVar(value="Select Name")
-        name_dropdown = ctk.CTkComboBox(
-            frame,
-            values=processed_names,
-            variable=name_var,
-            command=lambda choice: self.update_skill_name_selection(skill_name, skill_data),
-            state="readonly"
-        )
-        name_dropdown.grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
-        skill_data['variables']['name'] = name_var
-        skill_data['dropdowns']['name'] = name_dropdown
+        # Handle name selection (trigger_point == "Name")
+        elif trigger_point == "Name":
+            self._handle_skill_name_selection(skill_name, skill_data)
+            return
         
-        # Store original names for reference
-        skill_data['original_names'] = names
+        # Handle mod selection (trigger_point == "Mod")
+        elif trigger_point == "Mod":
+            self._handle_skill_mod_selection(skill_name, skill_data)
+            return
     
-    def update_skill_name_selection(self, skill_name, skill_data):
-        """Handle skill name selection and validate specialization requirements"""
-        name_val = skill_data['variables']['name'].get()
-        class_val = skill_data['variables']['class'].get()
+    def _handle_skill_name_selection(self, skill_name, skill_data):
+        """Internal helper: Handle skill name selection and validate specialization requirements"""
+        name_val = skill_data["Variables"]["Name"].get()
+        class_val = skill_data["Variables"]["Class"].get()
         
         if name_val == "Select Name":
             return
@@ -1297,20 +1900,20 @@ class DamageCalculatorApp(ctk.CTk):
         if "(Select " in name_val:
             # Revert to previous selection
             prev_name = skill_data.get('prev_name', "Select Name")
-            skill_data['variables']['name'].set(prev_name)
+            skill_data["Variables"]["Name"].set(prev_name)
             return
         
         # Store the current selection for potential revert
         skill_data['prev_name'] = name_val
         
         # Continue to update mods
-        self.update_skill_mods(skill_name, skill_data)
+        self._update_skill_mods(skill_name, skill_data)
     
-    def update_skill_mods(self, skill_name, skill_data, preserve_selections=True):
-        """Update skill mod dropdowns based on class selection"""
-        class_val = skill_data['variables']['class'].get()
-        name_val = skill_data['variables']['name'].get()
-        frame = skill_data['frame']
+    def _update_skill_mods(self, skill_name, skill_data, preserve_selections=True):
+        """Internal helper: Update skill mod dropdowns based on class selection"""
+        class_val = skill_data["Variables"]["Class"].get()
+        name_val = skill_data["Variables"]["Name"].get()
+        frame = skill_data["Frame"]
         
         if name_val == "Select Name":
             return
@@ -1327,7 +1930,8 @@ class DamageCalculatorApp(ctk.CTk):
                 matched_name = orig_name
                 break
             elif '(' in orig_name:
-                base_name = orig_name[:orig_name.index('(')].strip()
+                # Extract base name from LAST parentheses:
+                base_name = orig_name[:orig_name.rindex('(')].strip()
                 if base_name == name_val:
                     matched_name = orig_name
                     break
@@ -1338,12 +1942,13 @@ class DamageCalculatorApp(ctk.CTk):
         all_names = [n.strip() for n in names_str.split(';')]
         
         # Process names for display (same logic as in update_skill)
-        spec_val = self.specialization_var.get() if hasattr(self, 'specialization_var') else "Select Specialization"
+        spec_val = self.specialization_variable.get() if hasattr(self, 'specialization_variable') else "Select Specialization"
         processed_names = []
         for name in all_names:
             if '(' in name and ')' in name:
-                base_name = name[:name.index('(')].strip()
-                required_spec = name[name.index('(')+1:name.index(')')].strip()
+                # Extract base name and required spec from LAST parentheses:
+                base_name = name[:name.rindex('(')].strip()
+                required_spec = name[name.rindex('(')+1:name.rindex(')')].strip()
                 if spec_val == required_spec:
                     processed_names.append(base_name)
                 else:
@@ -1353,23 +1958,23 @@ class DamageCalculatorApp(ctk.CTk):
         
         # Exclude current selection from processed names
         available_names = [n for n in processed_names if n != name_val]
-        skill_data['dropdowns']['name'].configure(values=available_names)
+        skill_data["Dropdowns"]["Name"].configure(values=available_names)
         
         # Preserve existing selections if requested
         saved_selections = {}
         if preserve_selections:
-            for key, var in skill_data['variables'].items():
-                if key not in ['class', 'name']:
+            for key, var in skill_data["Variables"].items():
+                if key not in ["Class", "Name"]:
                     saved_selections[key] = var.get()
         
         # Clear existing mod dropdowns
-        for key in list(skill_data['dropdowns'].keys()):
-            if key not in ['class', 'name']:
-                skill_data['dropdowns'][key].grid_forget()
-                del skill_data['dropdowns'][key]
-        for key in list(skill_data['variables'].keys()):
-            if key not in ['class', 'name']:
-                del skill_data['variables'][key]
+        for key in list(skill_data["Dropdowns"].keys()):
+            if key not in ["Class", "Name"]:
+                skill_data["Dropdowns"][key].grid_forget()
+                del skill_data["Dropdowns"][key]
+        for key in list(skill_data["Variables"].keys()):
+            if key not in ["Class", "Name", "Expertise"]:
+                del skill_data["Variables"][key]
         
         # Get the mods dataframe for this class
         mods_sheet_name = f"{class_val} Mods"
@@ -1385,14 +1990,14 @@ class DamageCalculatorApp(ctk.CTk):
         # Determine final values for each mod slot (for proper exclusion lists)
         final_mod_values = {}
         for i, col_name in enumerate(mod_columns):
-            key = f'mod_{i+1}'
+            key = f"Mod {i+1}"
             final_mod_values[key] = saved_selections.get(key, f"Select {col_name} Mod")
         
         row_idx = 2
         
         # Create mod dropdowns
         for i, col_name in enumerate(mod_columns):
-            key = f'mod_{i+1}'
+            key = f"Mod {i+1}"
             saved_value = final_mod_values[key]
             
             mod_var = ctk.StringVar(value=saved_value)
@@ -1401,7 +2006,7 @@ class DamageCalculatorApp(ctk.CTk):
             all_mods = mods_df[mods_df[col_name] == '✓']['Stats'].tolist()
             
             # Process mods to handle specialization requirements
-            spec_val = self.specialization_var.get() if hasattr(self, 'specialization_var') else "Select Specialization"
+            spec_val = self.specialization_variable.get() if hasattr(self, 'specialization_variable') else "Select Specialization"
             processed_mods = []
             original_mods = []  # Store original mod names for matching
             
@@ -1455,328 +2060,240 @@ class DamageCalculatorApp(ctk.CTk):
                 frame,
                 values=available_mods,
                 variable=mod_var,
-                command=lambda choice, sname=skill_name, sdata=skill_data: self.update_skill_mod_selection(sname, sdata),
+                command=lambda choice, sname=skill_name, sdata=skill_data: self._handle_skill_mod_selection(sname, sdata),
                 state="readonly"
             )
             mod_dropdown.grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
-            skill_data['variables'][key] = mod_var
-            skill_data['dropdowns'][key] = mod_dropdown
+            skill_data["Variables"][key] = mod_var
+            skill_data["Dropdowns"][key] = mod_dropdown
             
-            # Store original mods for reference
+            # Store original mods and column name for reference
             if 'original_mods' not in skill_data:
                 skill_data['original_mods'] = {}
             skill_data['original_mods'][key] = original_mods
             
+            if 'mod_column_names' not in skill_data:
+                skill_data['mod_column_names'] = {}
+            skill_data['mod_column_names'][key] = col_name
+            
             row_idx += 1
     
-    def update_skill_mod_selection(self, skill_name, skill_data):
-        """Handle skill mod selection and validate specialization requirements"""
+    def _handle_skill_mod_selection(self, skill_name, skill_data):
+        """Internal helper: Handle skill mod selection and validate specialization requirements"""
         # Check if any selected mod is locked due to specialization
-        for key, mod_var in skill_data['variables'].items():
-            if key.startswith('mod_'):
+        for key, mod_var in skill_data["Variables"].items():
+            if key.startswith("Mod "):
                 mod_val = mod_var.get()
                 
                 # Check if this is a disabled specialization-locked mod
                 if "(Select " in mod_val:
-                    # Revert to previous selection
-                    prev_mod = skill_data.get(f'prev_{key}', f"Select Mod")
+                    # Determine the correct default text based on column name
+                    col_name = skill_data.get('mod_column_names', {}).get(key, "Mod")
+                    prev_mod = skill_data.get(f"Previous {key}", f"Select {col_name} Mod")
                     mod_var.set(prev_mod)
                     return
                 
                 # Store the current selection for potential revert
-                skill_data[f'prev_{key}'] = mod_val
+                skill_data[f"Previous {key}"] = mod_val
         
         # Refresh mods to update exclusion lists
-        self.update_skill_mods(skill_name, skill_data, preserve_selections=True)
+        self._update_skill_mods(skill_name, skill_data, preserve_selections=True)
 
     
-    def create_weapon_section_in_container(self, parent, weapon_name, icon_file):
-        """Create a weapon section with all dropdown fields in a container"""
-        # Main frame for weapon with border
-        weapon_frame = ctk.CTkFrame(parent, border_width=2)
-        weapon_frame.pack(padx=10, pady=10, fill="both", expand=True)
-        weapon_frame.grid_columnconfigure(1, weight=1)
-        weapon_frame.grid_rowconfigure(0, weight=1)
-        
-        # Try to load and display icon - centered vertically
-        try:
-            from PIL import Image
-            icon_path = assets_directory / icon_file
-            if icon_path.exists():
-                icon_image = ctk.CTkImage(
-                    light_image=Image.open(icon_path),
-                    dark_image=Image.open(icon_path),
-                    size=(40, 40)
-                )
-                icon_label = ctk.CTkLabel(weapon_frame, image=icon_image, text="")
-                # Empty sticky means center both horizontally and vertically
-                icon_label.grid(row=0, column=0, padx=10, pady=10, sticky="")
-        except:
-            pass
-        
-        # Create inner grid frame for dropdowns
-        dropdown_frame = ctk.CTkFrame(weapon_frame)
-        dropdown_frame.grid(row=0, column=1, sticky="ew", padx=10, pady=10)
-        dropdown_frame.grid_columnconfigure(0, weight=1)
-        
-        # Store references to all dropdowns for this weapon
-        weapon_data = {
-            'name': weapon_name,
-            'frame': dropdown_frame,
-            'dropdowns': {},
-            'variables': {},
-            'expertise_var': None,
-            'expertise_label': None
-        }
-        
-        # Class dropdown - always shown
-        class_var = ctk.StringVar(value="Select Class")
-        class_values = ["Assault Rifles", "Light Machineguns", "Marksman Rifles", "Pistols", "Rifles", "Shotguns", "Sub Machine Guns", "Signature Weapons"]
-        class_dropdown = ctk.CTkComboBox(
-            dropdown_frame,
-            values=class_values,
-            variable=class_var,
-            command=lambda choice: self.update_weapon(weapon_name, weapon_data),
-            state="readonly"
-        )
-        class_dropdown.grid(row=0, column=0, padx=5, pady=5, sticky="ew")
-        
-        weapon_data['variables']['class'] = class_var
-        weapon_data['dropdowns']['class'] = class_dropdown
-        
-        # Add expertise slider at the bottom
-        expertise_var = ctk.IntVar(value=30)
-        expertise_label = ctk.CTkLabel(dropdown_frame, text=f"Expertise: 30")
-        expertise_label.grid(row=100, column=0, padx=5, pady=(10, 2), sticky="w")
-        
-        expertise_slider = ctk.CTkSlider(
-            dropdown_frame,
-            from_=0,
-            to=30,
-            number_of_steps=30,
-            variable=expertise_var,
-            command=lambda value: expertise_label.configure(text=f"Expertise: {int(value)}")
-        )
-        expertise_slider.grid(row=101, column=0, padx=5, pady=(0, 5), sticky="ew")
-        
-        weapon_data['expertise_var'] = expertise_var
-        weapon_data['expertise_label'] = expertise_label
-        
-        # Store weapon_data for later access
-        if not hasattr(self, 'weapon_data'):
-            self.weapon_data = weapon_data
-        
-        # Initial check for Signature Weapons greying
-        self.update_weapon_class_options()
-    
     def update_weapon_class_options(self):
-        """Update weapon class dropdown based on specialization selection"""
-        if not hasattr(self, 'weapon_data') or not hasattr(self, 'specialization_var'):
+        """Update weapon class dropdown to exclude current selection"""
+        if not hasattr(self, 'weapon_data'):
             return
         
-        spec_val = self.specialization_var.get()
-        current_class = self.weapon_data['variables']['class'].get()
-        class_dropdown = self.weapon_data['dropdowns']['class']
+        current_class = self.weapon_data["Variables"]["Class"].get()
+        class_dropdown = self.weapon_data["Dropdowns"]["Class"]
         
-        all_classes = ["Assault Rifles", "Light Machineguns", "Marksman Rifles", "Pistols", "Rifles", "Shotguns", "Sub Machine Guns"]
+        all_classes = ["Assault Rifles", "Light Machineguns", "Marksman Rifles", "Pistols", "Rifles", "Shotguns", "Sub Machine Guns", "Signature Weapons"]
         
-        # Add Signature Weapons with strikethrough if no specialization selected
-        if spec_val == "Select Specialization":
-            # Use strikethrough to indicate disabled state
-            signature_display = "Signature Weapons (Select Specialization)"
-        else:
-            signature_display = "Signature Weapons"
-        
-        all_classes.append(signature_display)
-        
-        # Exclude current selection (but check both versions of Signature Weapons)
-        if current_class == "Signature Weapons" or current_class.startswith("Signature Weapons"):
-            available_classes = [c for c in all_classes if not c.startswith("Signature Weapons")]
-        else:
-            available_classes = [c for c in all_classes if c != current_class]
+        # Exclude current selection
+        available_classes = [c for c in all_classes if c != current_class]
         
         class_dropdown.configure(values=available_classes)
     
-    def update_weapon(self, weapon_name, weapon_data):
-        """Dynamically update weapon dropdowns based on selections"""
-        class_val = weapon_data['variables']['class'].get()
-        frame = weapon_data['frame']
+    def update_weapon(self, weapon_name, weapon_data, trigger_point="Class"):
+        """Dynamically update weapon dropdowns based on selections
+        
+        Args:
+            weapon_name: Name of the weapon slot (e.g., 'Weapon')
+            weapon_data: Dictionary containing weapon state and UI elements
+            trigger_point: Which dropdown triggered this update ("Class", "Type", "Name", "Mod", or 'attribute')
+        """
+        class_val = weapon_data["Variables"]["Class"].get()
+        frame = weapon_data["Frame"]
         
         if class_val == "Select Class":
             return
         
-        # Validate Signature Weapons selection - prevent if no specialization
-        if class_val.startswith("Signature Weapons"):
-            spec_val = self.specialization_var.get()
-            if spec_val == "Select Specialization":
-                # Revert to previous class
-                prev_class = weapon_data.get('prev_class', "Select Class")
-                weapon_data['variables']['class'].set(prev_class)
-                return
-            else:
-                # Normalize the class value to just "Signature Weapons"
-                class_val = "Signature Weapons"
-                weapon_data['variables']['class'].set(class_val)
-        
         # Update class dropdown options
         self.update_weapon_class_options()
         
-        # Check if class changed - if so, clear name and subsequent dropdowns but preserve type
-        # Store previous class to detect changes
-        prev_class = weapon_data.get('prev_class', None)
-        if prev_class is not None and prev_class != class_val:
-            # Class changed - clear name and everything below it
-            keys_to_clear = ['name', 'core_1', 'core_2', 'attribute', 'mod_1', 'mod_2', 'mod_3', 'mod_4', 'talent_1', 'talent_2']
-            for key in keys_to_clear:
-                if key in weapon_data['dropdowns']:
-                    weapon_data['dropdowns'][key].grid_forget()
-                    del weapon_data['dropdowns'][key]
-                if key in weapon_data['variables']:
-                    del weapon_data['variables'][key]
-        weapon_data['prev_class'] = class_val
-        
-        # Clear type dropdown if switching to/from Signature Weapons
-        if class_val == "Signature Weapons":
-            if 'type' in weapon_data['dropdowns']:
-                weapon_data['dropdowns']['type'].grid_forget()
-                del weapon_data['dropdowns']['type']
-                del weapon_data['variables']['type']
-        elif 'type' not in weapon_data['dropdowns']:
-            # Not Signature Weapons and no type dropdown exists yet - create it
-            row_idx = 1
-            type_var = ctk.StringVar(value="Select Type")
-            type_values = ["High-End", "Named", "Exotic"]
-            type_dropdown = ctk.CTkComboBox(
-                frame,
-                values=type_values,
-                variable=type_var,
-                command=lambda choice: self.update_weapon_name(weapon_name, weapon_data),
-                state="readonly"
-            )
-            type_dropdown.grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
-            weapon_data['variables']['type'] = type_var
-            weapon_data['dropdowns']['type'] = type_dropdown
-            return  # Wait for type selection
-        
-        # If we have type dropdown, wait for selection before proceeding
-        if 'type' in weapon_data['variables']:
-            type_val = weapon_data['variables']['type'].get()
-            if type_val == "Select Type":
+        # Handle class selection (trigger_point == "Class")
+        if trigger_point == "Class":
+            # Check if class changed - if so, clear name and subsequent dropdowns but preserve type
+            prev_class = weapon_data.get("Previous Class", None)
+            if prev_class is not None and prev_class != class_val:
+                # Class changed - clear name and everything below it
+                keys_to_clear = ["Name", "Core Attribute 1", "Core Attribute 2", "Attribute", "Optics Mod", "Magazine Mod", "Underbarrel Mod", "Muzzle Mod", "Talent 1", "Talent 2"]
+                for key in keys_to_clear:
+                    if key in weapon_data["Dropdowns"]:
+                        weapon_data["Dropdowns"][key].grid_forget()
+                        del weapon_data["Dropdowns"][key]
+                    if key in weapon_data["Variables"]:
+                        del weapon_data["Variables"][key]
+            weapon_data["Previous Class"] = class_val
+            
+            # Handle Signature Weapons (no type dropdown needed)
+            if class_val == "Signature Weapons":
+                # Clear type dropdown if it exists
+                if "Type" in weapon_data["Dropdowns"]:
+                    weapon_data["Dropdowns"]["Type"].grid_forget()
+                    del weapon_data["Dropdowns"]["Type"]
+                    del weapon_data["Variables"]["Type"]
+                # Proceed directly to name creation
+                self._update_weapon_name(weapon_name, weapon_data)
                 return
+            
+            # Create type dropdown if it doesn't exist yet
+            if "Type" not in weapon_data["Dropdowns"]:
+                row_idx = 1
+                type_var = ctk.StringVar(value="Select Type")
+                type_values = ["High-End", "Named", "Exotic"]
+                type_dropdown = ctk.CTkComboBox(
+                    frame,
+                    values=type_values,
+                    variable=type_var,
+                    command=lambda choice: self.update_weapon(weapon_name, weapon_data, trigger_point="Type"),
+                    state="readonly"
+                )
+                type_dropdown.grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
+                weapon_data["Variables"]["Type"] = type_var
+                weapon_data["Dropdowns"]["Type"] = type_dropdown
+                return  # Wait for type selection
+            else:
+                # Type exists - check if selected
+                if "Type" in weapon_data["Variables"]:
+                    type_val = weapon_data["Variables"]["Type"].get()
+                    if type_val != "Select Type":
+                        self._update_weapon_name(weapon_name, weapon_data)
+            return
         
-        # Create name dropdown
-        if class_val == "Signature Weapons":
-            self.update_weapon_name(weapon_name, weapon_data)
-        elif 'type' in weapon_data['variables']:
-            # Only create name if type is selected
-            self.update_weapon_name(weapon_name, weapon_data)
+        # Handle type selection (trigger_point == "Type")
+        elif trigger_point == "Type":
+            if "Type" in weapon_data["Variables"]:
+                type_val = weapon_data["Variables"]["Type"].get()
+                if type_val != "Select Type":
+                    self._update_weapon_name(weapon_name, weapon_data)
+            return
+        
+        # Handle name selection (trigger_point == "Name")
+        elif trigger_point == "Name":
+            self._handle_weapon_name_selection(weapon_name, weapon_data)
+            return
+        
+        # Handle mod selection (trigger_point == "Mod")
+        elif trigger_point == "mod":
+            self._handle_weapon_mod_selection(weapon_name, weapon_data)
+            return
+        
+        # Handle attribute selection (trigger_point == 'attribute')
+        elif trigger_point == "attribute":
+            self._update_weapon_attributes(weapon_name, weapon_data, preserve_selections=True)
+            return
     
-    def update_weapon_name(self, weapon_name, weapon_data):
-        """Update weapon name dropdown based on class and type"""
-        class_val = weapon_data['variables']['class'].get()
-        frame = weapon_data['frame']
+    def _update_weapon_name(self, weapon_name, weapon_data):
+        """Internal helper: Update weapon name dropdown based on class and type"""
+        class_val = weapon_data["Variables"]["Class"].get()
+        frame = weapon_data["Frame"]
         
         # Clear existing name dropdown and everything below it (core attributes, attribute, mods, talents)
-        keys_to_clear = ['name', 'core_1', 'core_2', 'attribute', 'mod_1', 'mod_2', 'mod_3', 'mod_4', 'talent_1', 'talent_2']
+        keys_to_clear = ["Name", "Core Attribute 1", "Core Attribute 2", "Attribute", "Optics Mod", "Magazine Mod", "Underbarrel Mod", "Muzzle Mod", "Talent 1", "Talent 2"]
         for key in keys_to_clear:
-            if key in weapon_data['dropdowns']:
-                weapon_data['dropdowns'][key].grid_forget()
-                del weapon_data['dropdowns'][key]
-            if key in weapon_data['variables']:
-                del weapon_data['variables'][key]
+            if key in weapon_data["Dropdowns"]:
+                weapon_data["Dropdowns"][key].grid_forget()
+                del weapon_data["Dropdowns"][key]
+            if key in weapon_data["Variables"]:
+                del weapon_data["Variables"][key]
         
-        row_idx = 2 if 'type' in weapon_data['dropdowns'] else 1
+        row_idx = 2 if "Type" in weapon_data["Dropdowns"] else 1
         
         name_var = ctk.StringVar()
         
+        # Get names from the class sheet
         if class_val == "Signature Weapons":
-            # Get name from Specialization Weapons sheet based on specialization
-            spec_val = self.specialization_var.get()
-            
-            sig_weapons = data["Weapon"]["Signature Weapons"]
-            weapon_row = sig_weapons[sig_weapons["Specialization"] == spec_val]
-            if not weapon_row.empty:
-                weapon_name_val = str(weapon_row.iloc[0]["Name"])
-                name_var.set(weapon_name_val)
-                name_dropdown = ctk.CTkComboBox(frame, values=[weapon_name_val], variable=name_var, state="disabled")
-                
-                # Store the name dropdown first
-                name_dropdown.grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
-                weapon_data['variables']['name'] = name_var
-                weapon_data['dropdowns']['name'] = name_dropdown
-                
-                # Now create the talent dropdown
-                self.update_weapon_attributes(weapon_name, weapon_data)
-                return
-            else:
-                return
+            # Signature Weapons don't have a Type column - get all names directly
+            weapon_sheet = data["Weapon"]["Signature Weapons"]
+            all_names = [str(name) for name in weapon_sheet["Name"].tolist()]
         else:
             # Get names from the class sheet filtered by type
-            type_val = weapon_data['variables']['type'].get()
+            type_val = weapon_data["Variables"]["Type"].get()
             if type_val == "Select Type":
                 return
             
             # Update type dropdown to exclude current selection
             all_types = ["High-End", "Named", "Exotic"]
             available_types = [t for t in all_types if t != type_val]
-            weapon_data['dropdowns']['type'].configure(values=available_types)
+            weapon_data["Dropdowns"]["Type"].configure(values=available_types)
             
             # Get weapon names and convert to strings
             weapon_sheet = data["Weapon"][class_val]
             all_names = [str(name) for name in weapon_sheet[weapon_sheet["Type"] == type_val]["Name"].tolist()]
-            
-            # Process names to handle specialization requirements
-            spec_val = self.specialization_var.get() if hasattr(self, 'specialization_var') else "Select Specialization"
-            processed_names = []
-            original_weapon_names = []
-            
-            for name in all_names:
-                original_weapon_names.append(name)
-                # Check if name has specialization requirement (rightmost parentheses)
-                if '(' in name and ')' in name:
-                    # Get the last occurrence of parentheses
-                    paren_start = name.rindex('(')
-                    paren_end = name.rindex(')')
-                    base_name = name[:paren_start].strip()
-                    paren_content = name[paren_start+1:paren_end].strip()
-                    
-                    # Check if rightmost parentheses contain a specialization
-                    if self.is_specialization_name(paren_content):
-                        # This is a specialization-specific weapon
-                        if spec_val == paren_content:
-                            # User has correct spec, show without the specialization parentheses
-                            processed_names.append(base_name)
-                        else:
-                            # User doesn't have the spec, show with "Select X" indicator
-                            processed_names.append(f"{base_name} (Select {paren_content})")
+        
+        # Process names to handle specialization requirements
+        spec_val = self.specialization_variable.get() if hasattr(self, 'specialization_variable') else "Select Specialization"
+        processed_names = []
+        original_weapon_names = []
+        
+        for name in all_names:
+            original_weapon_names.append(name)
+            # Check if name has specialization requirement (rightmost parentheses)
+            if '(' in name and ')' in name:
+                # Get the last occurrence of parentheses
+                paren_start = name.rindex('(')
+                paren_end = name.rindex(')')
+                base_name = name[:paren_start].strip()
+                paren_content = name[paren_start+1:paren_end].strip()
+                
+                # Check if rightmost parentheses contain a specialization
+                if self.is_specialization_name(paren_content):
+                    # This is a specialization-specific weapon
+                    if spec_val == paren_content:
+                        # User has correct spec, show without the specialization parentheses
+                        processed_names.append(base_name)
                     else:
-                        # Not a specialization, keep the full weapon name
-                        processed_names.append(name)
+                        # User doesn't have the spec, show with "Select X" indicator
+                        processed_names.append(f"{base_name} (Select {paren_content})")
                 else:
-                    # No parentheses, keep as is
+                    # Not a specialization, keep the full weapon name
                     processed_names.append(name)
-            
-            # Store original names for matching later
-            weapon_data['original_weapon_names'] = original_weapon_names
-            
-            name_var.set("Select Name")
-            name_dropdown = ctk.CTkComboBox(
-                frame,
-                values=processed_names,
-                variable=name_var,
-                command=lambda choice: self.update_weapon_name_selection(weapon_name, weapon_data),
+            else:
+                # No parentheses, keep as is
+                processed_names.append(name)
+        
+        # Store original names for matching later
+        weapon_data["Original Weapon Names"] = original_weapon_names
+        
+        name_var.set("Select Name")
+        name_dropdown = ctk.CTkComboBox(
+            frame,
+            values=processed_names,
+            variable=name_var,
+                command=lambda choice: self.update_weapon(weapon_name, weapon_data, trigger_point="Name"),
                 state="readonly"
             )
         
         name_dropdown.grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
-        weapon_data['variables']['name'] = name_var
-        weapon_data['dropdowns']['name'] = name_dropdown
+        weapon_data["Variables"]["Name"] = name_var
+        weapon_data["Dropdowns"]["Name"] = name_dropdown
     
-    def update_weapon_name_selection(self, weapon_name, weapon_data):
-        """Handle weapon name selection to exclude current selection from list"""
-        name_val = weapon_data['variables']['name'].get()
-        class_val = weapon_data['variables']['class'].get()
-        type_val = weapon_data['variables']['type'].get()
+    def _handle_weapon_name_selection(self, weapon_name, weapon_data):
+        """Internal helper: Handle weapon name selection to exclude current selection from list"""
+        name_val = weapon_data["Variables"]["Name"].get()
+        class_val = weapon_data["Variables"]["Class"].get()
         
         if name_val == "Select Name":
             return
@@ -1784,20 +2301,77 @@ class DamageCalculatorApp(ctk.CTk):
         # Check if this is a disabled specialization-locked weapon
         if "(Select " in name_val:
             # Revert to previous selection
-            prev_name = weapon_data.get('prev_name', "Select Name")
-            weapon_data['variables']['name'].set(prev_name)
+            prev_name = weapon_data.get("Previous Name", "Select Name")
+            weapon_data["Variables"]["Name"].set(prev_name)
             return
         
         # Store the current selection for potential revert
-        weapon_data['prev_name'] = name_val
+        weapon_data["Previous Name"] = name_val
         
-        # For Signature Weapons, just create the talent dropdown
+        # For Signature Weapons, update dropdown and create talent dropdown
         if class_val == "Signature Weapons":
-            self.update_weapon_attributes(weapon_name, weapon_data)
+            # Match the selected name against original names
+            original_weapon_names = weapon_data.get("Original Weapon Names", [])
+            matched_name = name_val
+            
+            # Try to find matching original name
+            for orig_name in original_weapon_names:
+                if orig_name == name_val:
+                    matched_name = orig_name
+                    break
+                elif '(' in orig_name and ')' in orig_name:
+                    paren_start = orig_name.rindex('(')
+                    paren_end = orig_name.rindex(')')
+                    base_name = orig_name[:paren_start].strip()
+                    paren_content = orig_name[paren_start+1:paren_end].strip()
+                    
+                    if self.is_specialization_name(paren_content) and base_name == name_val:
+                        matched_name = orig_name
+                        break
+            
+            # Update weapon_data to use the matched name for lookups
+            weapon_data["Matched Weapon Name"] = matched_name
+            
+            # Get all signature weapon names
+            weapon_sheet = data["Weapon"]["Signature Weapons"]
+            all_names = [str(name) for name in weapon_sheet["Name"].tolist()]
+            
+            # Process names for display
+            spec_val = self.specialization_variable.get() if hasattr(self, 'specialization_variable') else "Select Specialization"
+            processed_names = []
+            
+            for name in all_names:
+                if '(' in name and ')' in name:
+                    paren_start = name.rindex('(')
+                    paren_end = name.rindex(')')
+                    base_name = name[:paren_start].strip()
+                    paren_content = name[paren_start+1:paren_end].strip()
+                    
+                    if self.is_specialization_name(paren_content):
+                        if spec_val == paren_content:
+                            processed_names.append(base_name)
+                        else:
+                            processed_names.append(f"{base_name} (Select {paren_content})")
+                    else:
+                        processed_names.append(name)
+                else:
+                    processed_names.append(name)
+            
+            # Exclude current selection from processed names
+            available_names = [n for n in processed_names if n != name_val]
+            
+            # Update dropdown
+            weapon_data["Dropdowns"]["Name"].configure(values=available_names)
+            
+            # Create weapon attributes
+            self._update_weapon_attributes(weapon_name, weapon_data)
             return
         
+        # For non-Signature Weapons, get the type
+        type_val = weapon_data["Variables"]["Type"].get()
+        
         # Match the selected name against original names
-        original_weapon_names = weapon_data.get('original_weapon_names', [])
+        original_weapon_names = weapon_data.get("Original Weapon Names", [])
         matched_name = name_val
         
         # Try to find matching original name
@@ -1817,14 +2391,14 @@ class DamageCalculatorApp(ctk.CTk):
                     break
         
         # Update weapon_data to use the matched name for lookups
-        weapon_data['matched_weapon_name'] = matched_name
+        weapon_data["Matched Weapon Name"] = matched_name
         
         # Get all names for this class and type, converted to strings
         weapon_sheet = data["Weapon"][class_val]
         all_names = [str(name) for name in weapon_sheet[weapon_sheet["Type"] == type_val]["Name"].tolist()]
         
         # Process names for display
-        spec_val = self.specialization_var.get() if hasattr(self, 'specialization_var') else "Select Specialization"
+        spec_val = self.specialization_variable.get() if hasattr(self, 'specialization_variable') else "Select Specialization"
         processed_names = []
         
         for name in all_names:
@@ -1848,44 +2422,36 @@ class DamageCalculatorApp(ctk.CTk):
         available_names = [n for n in processed_names if n != name_val]
         
         # Update dropdown
-        weapon_data['dropdowns']['name'].configure(values=available_names)
+        weapon_data["Dropdowns"]["Name"].configure(values=available_names)
         
         # Create core attributes and attribute dropdowns
-        self.update_weapon_attributes(weapon_name, weapon_data)
+        self._update_weapon_attributes(weapon_name, weapon_data)
     
-    def update_weapon_mod_selection(self, weapon_name, weapon_data):
-        """Handle weapon mod selection and validate specialization requirements"""
+    def _handle_weapon_mod_selection(self, weapon_name, weapon_data):
+        """Internal helper: Handle weapon mod selection and validate specialization requirements"""
         # Check if any selected mod is locked due to specialization
-        for key, mod_var in weapon_data['variables'].items():
-            if key.startswith('mod_'):
+        for key, mod_var in weapon_data["Variables"].items():
+            if key in ["Optics Mod", "Magazine Mod", "Underbarrel Mod", "Muzzle Mod"]:
                 mod_val = mod_var.get()
                 
                 # Check if this is a disabled specialization-locked mod
                 if "(Select " in mod_val:
-                    # Determine the correct placeholder based on mod type
-                    mod_index = int(key.split('_')[1])
-                    mod_types = ["Optics Mod", "Magazine Mod", "Underbarrel Mod", "Muzzle Mod"]
-                    if mod_index <= len(mod_types):
-                        column_name = mod_types[mod_index - 1]
-                        prev_mod = weapon_data.get(f'prev_{key}', f"Select {column_name}")
-                    else:
-                        prev_mod = weapon_data.get(f'prev_{key}', "Select Mod")
-                    
                     # Revert to previous selection
+                    prev_mod = weapon_data.get(f"Previous {key}", f"Select {key}")
                     mod_var.set(prev_mod)
                     return
                 
                 # Store the current selection for potential revert
-                weapon_data[f'prev_{key}'] = mod_val
+                weapon_data[f"Previous {key}"] = mod_val
         
         # Refresh weapon attributes to update exclusion lists
-        self.update_weapon_attributes(weapon_name, weapon_data, preserve_selections=True)
+        self._update_weapon_attributes(weapon_name, weapon_data, preserve_selections=True)
     
-    def update_weapon_attributes(self, weapon_name, weapon_data, preserve_selections=True):
-        """Update weapon core attributes and attribute based on name selection"""
-        class_val = weapon_data['variables']['class'].get()
-        name_val = weapon_data['variables']['name'].get()
-        frame = weapon_data['frame']
+    def _update_weapon_attributes(self, weapon_name, weapon_data, preserve_selections=True):
+        """Internal helper: Update weapon core attributes and attribute based on name selection"""
+        class_val = weapon_data["Variables"]["Class"].get()
+        name_val = weapon_data["Variables"]["Name"].get()
+        frame = weapon_data["Frame"]
         
         if name_val == "Select Name":
             return
@@ -1893,41 +2459,56 @@ class DamageCalculatorApp(ctk.CTk):
         # Preserve existing selections if requested
         saved_selections = {}
         if preserve_selections:
-            for key, var in weapon_data['variables'].items():
-                if key not in ['class', 'type', 'name']:
+            for key, var in weapon_data["Variables"].items():
+                if key not in ["Class", "Type", "Name", "Expertise"]:
                     saved_selections[key] = var.get()
         
         # Clear existing attribute dropdowns
-        for key in list(weapon_data['dropdowns'].keys()):
-            if key not in ['class', 'type', 'name']:
-                weapon_data['dropdowns'][key].grid_forget()
-                del weapon_data['dropdowns'][key]
-        for key in list(weapon_data['variables'].keys()):
-            if key not in ['class', 'type', 'name']:
-                del weapon_data['variables'][key]
+        for key in list(weapon_data["Dropdowns"].keys()):
+            if key not in ["Class", "Type", "Name"]:
+                weapon_data["Dropdowns"][key].grid_forget()
+                del weapon_data["Dropdowns"][key]
+        for key in list(weapon_data["Variables"].keys()):
+            if key not in ["Class", "Type", "Name", "Expertise"]:
+                del weapon_data["Variables"][key]
         
         row_idx = 3  # After class, type, name
         
-        # Handle Signature Weapons separately (they only have a talent)
+        # Handle Signature Weapons separately (they only have a talent, no cores/attributes/mods)
         if class_val == "Signature Weapons":
+            # Match the displayed name back to the original name in the sheet
+            original_weapon_names = weapon_data.get("Original Weapon Names", [])
+            lookup_name = name_val
+            
+            # Find the original name (with specialization suffix)
+            for orig_name in original_weapon_names:
+                if '(' in orig_name and ')' in orig_name:
+                    base_name = orig_name[:orig_name.rindex('(')].strip()
+                    if base_name == name_val:
+                        lookup_name = orig_name
+                        break
+                elif orig_name == name_val:
+                    lookup_name = orig_name
+                    break
+            
             sig_weapons = data["Weapon"]["Signature Weapons"]
-            sig_row = sig_weapons[sig_weapons["Name"] == name_val]
+            sig_row = sig_weapons[sig_weapons["Name"] == lookup_name]
             if not sig_row.empty:
-                talent_val = sig_row.iloc[0].get("Talent", pd.NA)
+                talent_val = sig_row.iloc[0].get("Talent 1", pd.NA)
                 if not pd.isna(talent_val):
                     talent_var = ctk.StringVar(value=talent_val)
                     talent_dropdown = ctk.CTkComboBox(frame, values=[talent_val], variable=talent_var, state="disabled")
                     talent_dropdown.grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
-                    weapon_data['variables']['talent_1'] = talent_var
-                    weapon_data['dropdowns']['talent_1'] = talent_dropdown
+                    weapon_data["Variables"]["Talent 1"] = talent_var
+                    weapon_data["Dropdowns"]["Talent 1"] = talent_dropdown
             return
         
         # Get the actual weapon name to use for lookups (may differ from displayed name)
-        lookup_name = weapon_data.get('matched_weapon_name', name_val)
+        lookup_name = weapon_data.get("Matched Weapon Name", name_val)
         
         # Get weapon row for normal weapons
         weapon_sheet = data["Weapon"][class_val]
-        type_val = weapon_data['variables']['type'].get()
+        type_val = weapon_data["Variables"]["Type"].get()
         weapon_row = weapon_sheet[(weapon_sheet["Name"] == lookup_name) & (weapon_sheet["Type"] == type_val)].iloc[0]
         
         # Core Attributes (2 slots) - always predetermined or NA
@@ -1939,14 +2520,14 @@ class DamageCalculatorApp(ctk.CTk):
             core_var = ctk.StringVar(value=core_val)
             core_dropdown = ctk.CTkComboBox(frame, values=[core_val], variable=core_var, state="disabled")
             core_dropdown.grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
-            weapon_data['variables'][f'core_{i}'] = core_var
-            weapon_data['dropdowns'][f'core_{i}'] = core_dropdown
+            weapon_data["Variables"][f"Core Attribute {i}"] = core_var
+            weapon_data["Dropdowns"][f"Core Attribute {i}"] = core_dropdown
             row_idx += 1
         
         # Attribute (1 slot) - more complex logic
         attr_cell = weapon_row.get("Attribute", pd.NA)
         if not pd.isna(attr_cell):
-            saved_value = saved_selections.get('attribute', "Select Attribute")
+            saved_value = saved_selections.get("Attribute", "Select Attribute")
             attr_var = ctk.StringVar(value=saved_value)
             
             if attr_cell == "*":
@@ -1962,7 +2543,7 @@ class DamageCalculatorApp(ctk.CTk):
                     frame,
                     values=available_attrs,
                     variable=attr_var,
-                    command=lambda choice, wname=weapon_name, wdata=weapon_data: self.update_weapon_attributes(wname, wdata, preserve_selections=True),
+                    command=lambda choice, wname=weapon_name, wdata=weapon_data: self.update_weapon(wname, wdata, trigger_point="attribute"),
                     state="readonly"
                 )
             elif isinstance(attr_cell, str) and attr_cell.startswith("!"):
@@ -1979,7 +2560,7 @@ class DamageCalculatorApp(ctk.CTk):
                     frame,
                     values=available_attrs,
                     variable=attr_var,
-                    command=lambda choice, wname=weapon_name, wdata=weapon_data: self.update_weapon_attributes(wname, wdata, preserve_selections=True),
+                    command=lambda choice, wname=weapon_name, wdata=weapon_data: self.update_weapon(wname, wdata, trigger_point="attribute"),
                     state="readonly"
                 )
             else:
@@ -1988,8 +2569,8 @@ class DamageCalculatorApp(ctk.CTk):
                 attr_dropdown = ctk.CTkComboBox(frame, values=[attr_cell], variable=attr_var, state="disabled")
             
             attr_dropdown.grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
-            weapon_data['variables']['attribute'] = attr_var
-            weapon_data['dropdowns']['attribute'] = attr_dropdown
+            weapon_data["Variables"]["Attribute"] = attr_var
+            weapon_data["Dropdowns"]["Attribute"] = attr_dropdown
             row_idx += 1
         
         # Mods (4 slots) - Optics, Magazine, Underbarrel, Muzzle
@@ -2005,8 +2586,7 @@ class DamageCalculatorApp(ctk.CTk):
             if pd.isna(mod_cell):
                 continue
             
-            key = f'mod_{i}'
-            saved_value = saved_selections.get(key, f"Select {column_name}")
+            saved_value = saved_selections.get(column_name, f"Select {column_name}")
             mod_var = ctk.StringVar(value=saved_value)
             
             if isinstance(mod_cell, str) and mod_cell.startswith("*"):
@@ -2022,7 +2602,7 @@ class DamageCalculatorApp(ctk.CTk):
                         all_mods = mods_df[mods_df[mod_rail] == '✓']['Stats'].tolist()
                         
                         # Process mods to handle specialization requirements
-                        spec_val = self.specialization_var.get() if hasattr(self, 'specialization_var') else "Select Specialization"
+                        spec_val = self.specialization_variable.get() if hasattr(self, 'specialization_variable') else "Select Specialization"
                         processed_mods = []
                         original_mods = []  # Store original mod names for matching
                         
@@ -2075,14 +2655,14 @@ class DamageCalculatorApp(ctk.CTk):
                             frame,
                             values=available_mods,
                             variable=mod_var,
-                            command=lambda choice, wname=weapon_name, wdata=weapon_data: self.update_weapon_mod_selection(wname, wdata),
+                            command=lambda choice, wname=weapon_name, wdata=weapon_data: self.update_weapon(wname, wdata, trigger_point="mod"),
                             state="readonly"
                         )
                         
                         # Store original mods for reference
-                        if 'original_weapon_mods' not in weapon_data:
-                            weapon_data['original_weapon_mods'] = {}
-                        weapon_data['original_weapon_mods'][key] = original_mods
+                        if "Original Weapon Mods" not in weapon_data:
+                            weapon_data["Original Weapon Mods"] = {}
+                        weapon_data["Original Weapon Mods"][column_name] = original_mods
                     else:
                         continue
                 else:
@@ -2093,8 +2673,8 @@ class DamageCalculatorApp(ctk.CTk):
                 mod_dropdown = ctk.CTkComboBox(frame, values=[mod_cell], variable=mod_var, state="disabled")
             
             mod_dropdown.grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
-            weapon_data['variables'][key] = mod_var
-            weapon_data['dropdowns'][key] = mod_dropdown
+            weapon_data["Variables"][column_name] = mod_var
+            weapon_data["Dropdowns"][column_name] = mod_dropdown
             row_idx += 1
         
         # Talents (up to 2 slots for normal weapons)
@@ -2103,7 +2683,7 @@ class DamageCalculatorApp(ctk.CTk):
             if pd.isna(talent_cell):
                 continue
             
-            key = f'talent_{i}'
+            key = f"Talent {i}"
             saved_value = saved_selections.get(key, "Select Talent")
             talent_var = ctk.StringVar(value=saved_value)
             
@@ -2125,7 +2705,7 @@ class DamageCalculatorApp(ctk.CTk):
                         frame,
                         values=available_talents,
                         variable=talent_var,
-                        command=lambda choice, wname=weapon_name, wdata=weapon_data: self.update_weapon_attributes(wname, wdata, preserve_selections=True),
+                        command=lambda choice, wname=weapon_name, wdata=weapon_data: self.update_weapon(wname, wdata, trigger_point="attribute"),
                         state="readonly"
                     )
                 else:
@@ -2136,863 +2716,9 @@ class DamageCalculatorApp(ctk.CTk):
                 talent_dropdown = ctk.CTkComboBox(frame, values=[talent_cell], variable=talent_var, state="disabled")
             
             talent_dropdown.grid(row=row_idx, column=0, padx=5, pady=5, sticky="ew")
-            weapon_data['variables'][key] = talent_var
-            weapon_data['dropdowns'][key] = talent_dropdown
+            weapon_data["Variables"][key] = talent_var
+            weapon_data["Dropdowns"][key] = talent_dropdown
             row_idx += 1
-
-    
-    def setup_build_tuning(self):
-        """Setup the Build Tuning window"""
-        label = ctk.CTkLabel(
-            self.build_tuning_frame,
-            text="Build Tuning",
-            font=ctk.CTkFont(size=32, weight="bold")
-        )
-        label.pack(pady=50)
-    
-    def setup_damage_output(self):
-        """Setup the Damage Output window"""
-        label = ctk.CTkLabel(
-            self.damage_output_frame,
-            text="Damage Output",
-            font=ctk.CTkFont(size=32, weight="bold")
-        )
-        label.pack(pady=50)
-    
-    def show_build_creator(self):
-        """Show the Build Creator window"""
-        if self.current_frame:
-            self.current_frame.grid_forget()
-        self.build_creator_frame.grid(row=0, column=1, sticky="nsew")
-        self.current_frame = self.build_creator_frame
-        
-        # Update button states
-        self.build_creator_btn.configure(state="disabled")
-        self.build_tuning_btn.configure(state="normal")
-        self.damage_output_btn.configure(state="normal")
-    
-    def toggle_sidebar(self):
-        """Toggle the sidebar visibility"""
-        if self.sidebar_visible:
-            # Hide sidebar
-            if self.sidebar_frame:
-                self.sidebar_frame.place_forget()
-            self.sidebar_visible = False
-            # Unbind Escape key
-            self.unbind("<Escape>")
-        else:
-            # Destroy old sidebar if it exists to ensure width updates
-            if self.sidebar_frame:
-                self.sidebar_frame.destroy()
-                self.sidebar_frame = None
-            
-            # Create and show sidebar
-            self.create_sidebar()
-            self.sidebar_frame.place(x=0, y=0, relheight=1.0)
-            self.sidebar_visible = True
-            # Bind Escape key to close sidebar when it's open
-            self.bind("<Escape>", lambda e: self.toggle_sidebar())
-    
-    def create_sidebar(self):
-        """Create the sidebar menu"""
-        self.sidebar_frame = ctk.CTkFrame(self.build_creator_frame, width=600, corner_radius=0)
-        self.sidebar_frame.pack_propagate(False)
-        
-        # Close button in top right corner
-        close_btn = ctk.CTkButton(
-            self.sidebar_frame,
-            text="✕",
-            command=self.toggle_sidebar,
-            width=30,
-            height=30,
-            font=ctk.CTkFont(size=16),
-            fg_color="transparent",
-            hover_color="gray30"
-        )
-        close_btn.place(x=560, y=10)
-        
-        # Create scrollable frame for build list (leave space at top for close button)
-        builds_scroll = ctk.CTkScrollableFrame(self.sidebar_frame)
-        builds_scroll.pack(fill="both", expand=True, padx=10, pady=(50, 10))
-        
-        # Load and display builds
-        self.refresh_build_list(builds_scroll)
-    
-    def refresh_build_list(self, container):
-        """Refresh the list of builds in the sidebar"""
-        # Clear existing widgets
-        for widget in container.winfo_children():
-            widget.destroy()
-        
-        # Load all builds from the builds directory
-        builds = self.get_all_builds()
-        
-        # Display each build
-        for build in builds:
-            self.create_build_entry(container, build)
-        
-        # Add the "Save Build" button at the bottom
-        new_build_frame = ctk.CTkFrame(container, height=80)
-        new_build_frame.pack(fill="x", padx=5, pady=10)
-        
-        new_build_btn = ctk.CTkButton(
-            new_build_frame,
-            text="+ Save Build",
-            command=self.create_new_build,
-            height=60,
-            font=ctk.CTkFont(size=16, weight="bold")
-        )
-        new_build_btn.pack(fill="both", expand=True, padx=10, pady=10)
-    
-    def get_all_builds(self):
-        """Get all saved builds from the builds directory"""
-        builds = []
-        
-        # Ensure builds directory exists
-        builds_directory.mkdir(parents=True, exist_ok=True)
-        
-        # Load all JSON files
-        for build_file in sorted(builds_directory.glob("*.json")):
-            try:
-                with open(build_file, 'r') as f:
-                    build_data = json.load(f)
-                    builds.append(build_data)
-            except Exception as e:
-                pass
-        
-        # Sort by build name
-        builds.sort(key=lambda x: x.get("Build Name", "").lower())
-        return builds
-    
-    def create_build_entry(self, container, build_data):
-        """Create a single build entry with Load, Overwrite, Delete buttons"""
-        build_frame = ctk.CTkFrame(container)
-        build_frame.pack(fill="x", padx=5, pady=5)
-        
-        # Build name label
-        name_label = ctk.CTkLabel(
-            build_frame,
-            text=build_data.get("Build Name", "Unnamed Build"),
-            font=ctk.CTkFont(size=14, weight="bold"),
-            anchor="w"
-        )
-        name_label.pack(side="left", padx=10, pady=10, fill="x", expand=True)
-        
-        # Button container
-        btn_container = ctk.CTkFrame(build_frame, fg_color="transparent")
-        btn_container.pack(side="right", padx=5, pady=5)
-        
-        # Load button with image
-        try:
-            from PIL import Image
-            load_icon_path = assets_directory / "load.png"
-            if load_icon_path.exists():
-                load_image = ctk.CTkImage(
-                    light_image=Image.open(load_icon_path),
-                    dark_image=Image.open(load_icon_path),
-                    size=(30, 30)
-                )
-                load_btn = ctk.CTkButton(
-                    btn_container,
-                    text="",
-                    image=load_image,
-                    command=lambda: self.load_build(build_data),
-                    width=40,
-                    height=40,
-                    fg_color="transparent",
-                    hover_color="gray20",
-                    border_width=2,
-                    border_color="gray30"
-                )
-            else:
-                load_btn = ctk.CTkButton(
-                    btn_container,
-                    text="Load",
-                    command=lambda: self.load_build(build_data),
-                    width=70,
-                    height=30,
-                    font=ctk.CTkFont(size=12)
-                )
-        except:
-            load_btn = ctk.CTkButton(
-                btn_container,
-                text="Load",
-                command=lambda: self.load_build(build_data),
-                width=70,
-                height=30,
-                font=ctk.CTkFont(size=12)
-            )
-        load_btn.pack(side="left", padx=2)
-        
-        # Rename button with image
-        try:
-            rename_icon_path = assets_directory / "rename.png"
-            if rename_icon_path.exists():
-                rename_image = ctk.CTkImage(
-                    light_image=Image.open(rename_icon_path),
-                    dark_image=Image.open(rename_icon_path),
-                    size=(30, 30)
-                )
-                rename_btn = ctk.CTkButton(
-                    btn_container,
-                    text="",
-                    image=rename_image,
-                    command=lambda: self.rename_build(build_data),
-                    width=40,
-                    height=40,
-                    fg_color="transparent",
-                    hover_color="gray20",
-                    border_width=2,
-                    border_color="gray30"
-                )
-            else:
-                rename_btn = ctk.CTkButton(
-                    btn_container,
-                    text="Rename",
-                    command=lambda: self.rename_build(build_data),
-                    width=70,
-                    height=30,
-                    font=ctk.CTkFont(size=12)
-                )
-        except:
-            rename_btn = ctk.CTkButton(
-                btn_container,
-                text="Rename",
-                command=lambda: self.rename_build(build_data),
-                width=70,
-                height=30,
-                font=ctk.CTkFont(size=12)
-            )
-        rename_btn.pack(side="left", padx=2)
-        
-        # Overwrite button with image
-        try:
-            overwrite_icon_path = assets_directory / "overwrite.png"
-            if overwrite_icon_path.exists():
-                overwrite_image = ctk.CTkImage(
-                    light_image=Image.open(overwrite_icon_path),
-                    dark_image=Image.open(overwrite_icon_path),
-                    size=(30, 30)
-                )
-                overwrite_btn = ctk.CTkButton(
-                    btn_container,
-                    text="",
-                    image=overwrite_image,
-                    command=lambda: self.overwrite_build(build_data),
-                    width=40,
-                    height=40,
-                    fg_color="transparent",
-                    hover_color="gray20",
-                    border_width=2,
-                    border_color="gray30"
-                )
-            else:
-                overwrite_btn = ctk.CTkButton(
-                    btn_container,
-                    text="Overwrite",
-                    command=lambda: self.overwrite_build(build_data),
-                    width=80,
-                    height=30,
-                    font=ctk.CTkFont(size=12),
-                    fg_color="orange",
-                    hover_color="darkorange"
-                )
-        except:
-            overwrite_btn = ctk.CTkButton(
-                btn_container,
-                text="Overwrite",
-                command=lambda: self.overwrite_build(build_data),
-                width=80,
-                height=30,
-                font=ctk.CTkFont(size=12),
-                fg_color="orange",
-                hover_color="darkorange"
-            )
-        overwrite_btn.pack(side="left", padx=2)
-        
-        # Delete button with image
-        try:
-            delete_icon_path = assets_directory / "delete.png"
-            if delete_icon_path.exists():
-                delete_image = ctk.CTkImage(
-                    light_image=Image.open(delete_icon_path),
-                    dark_image=Image.open(delete_icon_path),
-                    size=(30, 30)
-                )
-                delete_btn = ctk.CTkButton(
-                    btn_container,
-                    text="",
-                    image=delete_image,
-                    command=lambda: self.delete_build(build_data),
-                    width=40,
-                    height=40,
-                    fg_color="transparent",
-                    hover_color="gray20",
-                    border_width=2,
-                    border_color="gray30"
-                )
-            else:
-                delete_btn = ctk.CTkButton(
-                    btn_container,
-                    text="Delete",
-                    command=lambda: self.delete_build(build_data),
-                    width=70,
-                    height=30,
-                    font=ctk.CTkFont(size=12),
-                    fg_color="red",
-                    hover_color="darkred"
-                )
-        except:
-            delete_btn = ctk.CTkButton(
-                btn_container,
-                text="Delete",
-                command=lambda: self.delete_build(build_data),
-                width=70,
-                height=30,
-                font=ctk.CTkFont(size=12),
-                fg_color="red",
-                hover_color="darkred"
-            )
-        delete_btn.pack(side="left", padx=2)
-    
-    def create_new_build(self):
-        """Create a new build by saving current selections"""
-        # Temporarily unbind Escape from sidebar
-        self.unbind("<Escape>")
-        
-        # Create dialog frame floating in center (no overlay background)
-        dialog_frame = ctk.CTkFrame(self.build_creator_frame, width=400, height=200, corner_radius=10, border_width=2, border_color="gray30")
-        dialog_frame.place(relx=0.5, rely=0.5, anchor="center")
-        dialog_frame.pack_propagate(False)
-        
-        # Function to close dialog and rebind escape
-        def close_dialog():
-            dialog_frame.destroy()
-            # Rebind Escape to sidebar if it's open
-            if self.sidebar_visible:
-                self.bind("<Escape>", lambda e: self.toggle_sidebar())
-        
-        # Close button in top right corner
-        close_btn = ctk.CTkButton(
-            dialog_frame,
-            text="✕",
-            command=close_dialog,
-            width=30,
-            height=30,
-            font=ctk.CTkFont(size=16),
-            fg_color="transparent",
-            hover_color="gray30"
-        )
-        close_btn.place(x=360, y=10)
-        
-        # Title
-        title_label = ctk.CTkLabel(
-            dialog_frame, 
-            text="New Build", 
-            font=ctk.CTkFont(size=18, weight="bold")
-        )
-        title_label.pack(pady=(20, 10))
-        
-        # Label
-        label = ctk.CTkLabel(dialog_frame, text="Enter build name:", font=ctk.CTkFont(size=14))
-        label.pack(pady=(10, 5))
-        
-        # Entry field
-        entry = ctk.CTkEntry(dialog_frame, width=300, height=35)
-        entry.pack(pady=5)
-        
-        # Character counter label
-        char_counter = ctk.CTkLabel(dialog_frame, text="0/20", font=ctk.CTkFont(size=12), text_color="gray60")
-        char_counter.pack(pady=(0, 10))
-        
-        # Function to update character counter and limit input
-        def update_counter(*args):
-            text = entry.get()
-            # Limit to 20 characters
-            if len(text) > 20:
-                entry.delete(20, "end")
-                text = entry.get()
-            # Update counter display
-            count = len(text)
-            char_counter.configure(text=f"{count}/20")
-            # Change color based on length
-            if count >= 20:
-                char_counter.configure(text_color="orange")
-            else:
-                char_counter.configure(text_color="gray60")
-        
-        # Bind to entry field changes
-        entry.bind("<KeyRelease>", update_counter)
-        
-        entry.focus()
-        
-        # Store the result
-        build_name = None
-        
-        def on_ok():
-            nonlocal build_name
-            build_name = entry.get()
-            close_dialog()
-        
-        # Bind Enter key to OK and Escape to Cancel
-        entry.bind("<Return>", lambda e: on_ok())
-        entry.bind("<Escape>", lambda e: close_dialog())
-        dialog_frame.bind("<Escape>", lambda e: close_dialog())
-        
-        # Wait for dialog to be destroyed
-        self.wait_window(dialog_frame)
-        
-        if build_name:
-            # Get current build state
-            build_data = self.get_current_build_state()
-            
-            # Check if a build with this name already exists and add number suffix if needed
-            original_name = build_name
-            counter = 1
-            while True:
-                test_filename = self.sanitize_filename(build_name) + ".json"
-                test_path = builds_directory / test_filename
-                if not test_path.exists():
-                    break
-                counter += 1
-                build_name = f"{original_name} ({counter})"
-            
-            build_data["Build Name"] = build_name
-            
-            # Save to file (filename derived from build name)
-            file_path = builds_directory / (self.sanitize_filename(build_name) + ".json")
-            self.save_build_to_file(build_data, file_path)
-            
-            # Refresh the sidebar
-            self.toggle_sidebar()  # Close
-            self.toggle_sidebar()  # Reopen to refresh
-    
-    def get_current_build_state(self):
-        """Get the current state of all selections as a dictionary"""
-        build_data = {}
-        
-        # Specialization
-        if hasattr(self, 'specialization_var'):
-            spec_val = self.specialization_var.get()
-            build_data["Specialization"] = None if spec_val == "Select Specialization" else spec_val
-        
-        # Weapon - complete structure
-        weapon_dict = {
-            "Class": None,
-            "Type": None,
-            "Name": None,
-            "Core 1": None,
-            "Core 2": None,
-            "Attribute": None,
-            "Mod 1": None,
-            "Mod 2": None,
-            "Mod 3": None,
-            "Mod 4": None,
-            "Talent 1": None,
-            "Talent 2": None,
-            "Expertise": 30
-        }
-        
-        if hasattr(self, 'weapon_data'):
-            for key, var in self.weapon_data.get('variables', {}).items():
-                display_key = key.replace('_', ' ').title()
-                value = var.get()
-                # Convert "Select X" values to null
-                if value and not value.startswith("Select"):
-                    weapon_dict[display_key] = value
-            
-            # Add expertise
-            if self.weapon_data.get('expertise_var'):
-                weapon_dict["Expertise"] = self.weapon_data['expertise_var'].get()
-        
-        build_data["Weapon"] = weapon_dict
-        
-        # Skills - complete structure for each
-        for skill_name in ["Skill Left", "Skill Right"]:
-            skill_dict = {
-                "Class": None,
-                "Name": None,
-                "Mod 1": None,
-                "Mod 2": None,
-                "Mod 3": None,
-                "Expertise": 30
-            }
-            
-            if hasattr(self, 'skill_sections') and skill_name in self.skill_sections:
-                skill_data = self.skill_sections[skill_name]
-                for key, var in skill_data.get('variables', {}).items():
-                    display_key = key.replace('_', ' ').title()
-                    value = var.get()
-                    # Convert "Select X" values to null
-                    if value and not value.startswith("Select"):
-                        skill_dict[display_key] = value
-                
-                # Add expertise
-                if skill_data.get('expertise_var'):
-                    skill_dict["Expertise"] = skill_data['expertise_var'].get()
-            
-            build_data[skill_name] = skill_dict
-        
-        # Gear - complete structure for each piece
-        for gear_name in ["Mask", "Body Armor", "Holster", "Backpack", "Gloves", "Kneepads"]:
-            gear_dict = {
-                "Type": None,
-                "Name": None,
-                "Core 1": None,
-                "Core 2": None,
-                "Core 3": None,
-                "Attr 1": None,
-                "Attr 2": None,
-                "Attr 3": None,
-                "Mod 1": None,
-                "Mod 2": None,
-                "Talent 1": None,
-                "Talent 2": None
-            }
-            
-            if hasattr(self, 'gear_sections') and gear_name in self.gear_sections:
-                gear_data = self.gear_sections[gear_name]
-                for key, var in gear_data.get('variables', {}).items():
-                    display_key = key.replace('_', ' ').title()
-                    value = var.get()
-                    # Convert "Select X" values to null
-                    if value and not value.startswith("Select"):
-                        gear_dict[display_key] = value
-            
-            build_data[gear_name] = gear_dict
-        
-        return build_data
-    
-    def sanitize_filename(self, name):
-        """Convert build name to valid filename, preserving original case and spaces"""
-        # Remove invalid characters for Windows filenames
-        invalid_chars = '<>:"/\\|?*'
-        sanitized = name
-        for char in invalid_chars:
-            sanitized = sanitized.replace(char, '')
-        return sanitized.strip()
-    
-    def save_build_to_file(self, build_data, file_path):
-        """Save build data to JSON file"""
-        try:
-            builds_directory.mkdir(parents=True, exist_ok=True)
-            
-            with open(file_path, 'w') as f:
-                json.dump(build_data, f, indent=4)
-        except Exception as e:
-            pass
-    
-    def load_build(self, build_data):
-        """Load a build into the current environment"""
-        try:
-            # Load specialization first (affects weapon and skill options)
-            if "Specialization" in build_data and hasattr(self, 'specialization_var'):
-                spec_val = build_data["Specialization"]
-                if spec_val is not None:
-                    self.specialization_var.set(spec_val)
-                    # Trigger update
-                    if hasattr(self, 'specialization_dropdown'):
-                        self.update_specialization(self.specialization_var, self.specialization_dropdown)
-            
-            # Load weapon - set values in cascade order
-            if "Weapon" in build_data and hasattr(self, 'weapon_data'):
-                weapon_dict = build_data["Weapon"]
-                
-                # Set class first and trigger update (creates type dropdown)
-                if "Class" in weapon_dict and weapon_dict["Class"] is not None and 'class' in self.weapon_data.get('variables', {}):
-                    self.weapon_data['variables']['class'].set(weapon_dict["Class"])
-                    self.update_weapon("Weapon", self.weapon_data)
-                    self.after(50)  # Allow GUI to update
-                
-                # Set type if it exists and trigger update (creates name dropdown)
-                if "Type" in weapon_dict and weapon_dict["Type"] is not None and 'type' in self.weapon_data.get('variables', {}):
-                    self.weapon_data['variables']['type'].set(weapon_dict["Type"])
-                    self.update_weapon_name("Weapon", self.weapon_data)
-                    self.after(50)
-                
-                # Set name and trigger update (creates attributes)
-                if "Name" in weapon_dict and weapon_dict["Name"] is not None and 'name' in self.weapon_data.get('variables', {}):
-                    self.weapon_data['variables']['name'].set(weapon_dict["Name"])
-                    self.update_weapon_attributes("Weapon", self.weapon_data, preserve_selections=False)
-                    self.after(50)
-                
-                # Now set remaining attributes (only if not null)
-                for key, value in weapon_dict.items():
-                    if value is not None:  # Skip null values
-                        var_key = key.lower().replace(' ', '_')
-                        if var_key in self.weapon_data.get('variables', {}) and key not in ["Class", "Type", "Name"]:
-                            self.weapon_data['variables'][var_key].set(value)
-                
-                # Load expertise (default to 30 if null)
-                if "Expertise" in weapon_dict and self.weapon_data.get('expertise_var'):
-                    expertise_val = weapon_dict["Expertise"]
-                    self.weapon_data['expertise_var'].set(expertise_val if expertise_val is not None else 30)
-            
-            # Load skills - set values in cascade order
-            if hasattr(self, 'skill_sections'):
-                for skill_name in ["Skill Left", "Skill Right"]:
-                    if skill_name in build_data and skill_name in self.skill_sections:
-                        skill_dict = build_data[skill_name]
-                        skill_data = self.skill_sections[skill_name]
-                        
-                        # Set class first and trigger update (creates name dropdown)
-                        if "Class" in skill_dict and skill_dict["Class"] is not None and 'class' in skill_data.get('variables', {}):
-                            skill_data['variables']['class'].set(skill_dict["Class"])
-                            self.update_skill(skill_name, skill_data)
-                            self.after(50)
-                        
-                        # Set name and trigger update (creates mod dropdowns)
-                        if "Name" in skill_dict and skill_dict["Name"] is not None and 'name' in skill_data.get('variables', {}):
-                            skill_data['variables']['name'].set(skill_dict["Name"])
-                            self.update_skill_mods(skill_name, skill_data, preserve_selections=False)
-                            self.after(50)
-                        
-                        # Now set remaining attributes (mods) - only if not null
-                        for key, value in skill_dict.items():
-                            if value is not None:  # Skip null values
-                                var_key = key.lower().replace(' ', '_')
-                                if var_key in skill_data.get('variables', {}) and key not in ["Class", "Name"]:
-                                    skill_data['variables'][var_key].set(value)
-                        
-                        # Load expertise (default to 30 if null)
-                        if "Expertise" in skill_dict and skill_data.get('expertise_var'):
-                            expertise_val = skill_dict["Expertise"]
-                            skill_data['expertise_var'].set(expertise_val if expertise_val is not None else 30)
-            
-            # Load gear - set values in cascade order
-            if hasattr(self, 'gear_sections'):
-                for gear_name in ["Mask", "Body Armor", "Holster", "Backpack", "Gloves", "Kneepads"]:
-                    if gear_name in build_data and gear_name in self.gear_sections:
-                        gear_dict = build_data[gear_name]
-                        gear_data = self.gear_sections[gear_name]
-                        
-                        # Set type first and trigger update (creates name dropdown)
-                        if "Type" in gear_dict and gear_dict["Type"] is not None and 'type' in gear_data.get('variables', {}):
-                            gear_data['variables']['type'].set(gear_dict["Type"])
-                            self.update_gear(gear_name, gear_data)
-                            self.after(50)
-                        
-                        # Set name and trigger update (creates attributes)
-                        if "Name" in gear_dict and gear_dict["Name"] is not None and 'name' in gear_data.get('variables', {}):
-                            gear_data['variables']['name'].set(gear_dict["Name"])
-                            self.update_gear_attributes(gear_name, gear_data, preserve_selections=False)
-                            self.after(50)
-                        
-                        # Now set remaining attributes (only if not null)
-                        for key, value in gear_dict.items():
-                            if value is not None:  # Skip null values
-                                var_key = key.lower().replace(' ', '_')
-                                if var_key in gear_data.get('variables', {}) and key not in ["Type", "Name"]:
-                                    gear_data['variables'][var_key].set(value)
-            
-            self.toggle_sidebar()  # Close sidebar after loading
-            
-        except Exception as e:
-            pass
-    
-    def overwrite_build(self, build_data):
-        """Overwrite an existing build with current selections"""
-        try:
-            # Get current state
-            new_data = self.get_current_build_state()
-            
-            # Keep the same build name
-            new_data["Build Name"] = build_data["Build Name"]
-            
-            # Derive filename from build name
-            file_path = builds_directory / (self.sanitize_filename(build_data["Build Name"]) + ".json")
-            
-            # Save to file
-            self.save_build_to_file(new_data, file_path)
-            
-            # Refresh the sidebar
-            self.toggle_sidebar()  # Close
-            self.toggle_sidebar()  # Reopen to refresh
-            
-        except Exception as e:
-            pass
-    
-    def delete_build(self, build_data):
-        """Delete a build file"""
-        try:
-            # Derive filename from build name
-            file_path = builds_directory / (self.sanitize_filename(build_data["Build Name"]) + ".json")
-            
-            if file_path.exists():
-                file_path.unlink()
-                
-                # Refresh the sidebar
-                self.toggle_sidebar()  # Close
-                self.toggle_sidebar()  # Reopen to refresh
-        except Exception as e:
-            pass
-    
-    def rename_build(self, build_data):
-        """Rename a build"""
-        # Temporarily unbind Escape from sidebar
-        self.unbind("<Escape>")
-        
-        # Create dialog frame floating in center
-        dialog_frame = ctk.CTkFrame(self.build_creator_frame, width=400, height=200, corner_radius=10, border_width=2, border_color="gray30")
-        dialog_frame.place(relx=0.5, rely=0.5, anchor="center")
-        dialog_frame.pack_propagate(False)
-        
-        # Function to close dialog and rebind escape
-        def close_dialog():
-            dialog_frame.destroy()
-            # Rebind Escape to sidebar if it's open
-            if self.sidebar_visible:
-                self.bind("<Escape>", lambda e: self.toggle_sidebar())
-        
-        # Close button in top right corner
-        close_btn = ctk.CTkButton(
-            dialog_frame,
-            text="✕",
-            command=close_dialog,
-            width=30,
-            height=30,
-            font=ctk.CTkFont(size=16),
-            fg_color="transparent",
-            hover_color="gray30"
-        )
-        close_btn.place(x=360, y=10)
-        
-        # Title
-        title_label = ctk.CTkLabel(
-            dialog_frame, 
-            text="Rename Build", 
-            font=ctk.CTkFont(size=18, weight="bold")
-        )
-        title_label.pack(pady=(20, 10))
-        
-        # Label
-        label = ctk.CTkLabel(dialog_frame, text="Enter new build name:", font=ctk.CTkFont(size=14))
-        label.pack(pady=(10, 5))
-        
-        # Entry field with current name pre-filled
-        entry = ctk.CTkEntry(dialog_frame, width=300, height=35)
-        entry.pack(pady=5)
-        entry.insert(0, build_data["Build Name"])
-        entry.select_range(0, "end")  # Select all text for easy replacement
-        
-        # Character counter label
-        char_counter = ctk.CTkLabel(dialog_frame, text=f"{len(build_data['Build Name'])}/20", font=ctk.CTkFont(size=12), text_color="gray60")
-        char_counter.pack(pady=(0, 10))
-        
-        # Function to update character counter and limit input
-        def update_counter(*args):
-            text = entry.get()
-            # Limit to 20 characters
-            if len(text) > 20:
-                entry.delete(20, "end")
-                text = entry.get()
-            # Update counter display
-            count = len(text)
-            char_counter.configure(text=f"{count}/20")
-            # Change color based on length
-            if count >= 20:
-                char_counter.configure(text_color="orange")
-            else:
-                char_counter.configure(text_color="gray60")
-        
-        # Bind to entry field changes
-        entry.bind("<KeyRelease>", update_counter)
-        
-        entry.focus()
-        
-        # Store the result
-        new_name = None
-        
-        def on_ok():
-            nonlocal new_name
-            new_name = entry.get()
-            close_dialog()
-        
-        # Bind Enter key to OK and Escape to Cancel
-        entry.bind("<Return>", lambda e: on_ok())
-        entry.bind("<Escape>", lambda e: close_dialog())
-        dialog_frame.bind("<Escape>", lambda e: close_dialog())
-        
-        # Wait for dialog to be destroyed
-        self.wait_window(dialog_frame)
-        
-        if new_name and new_name != build_data["Build Name"]:
-            try:
-                # Get old file path
-                old_file_path = builds_directory / (self.sanitize_filename(build_data["Build Name"]) + ".json")
-                
-                # Check if a build with the new name already exists and add number suffix if needed
-                original_name = new_name
-                counter = 1
-                while True:
-                    test_filename = self.sanitize_filename(new_name) + ".json"
-                    test_path = builds_directory / test_filename
-                    if not test_path.exists() or test_path == old_file_path:
-                        break
-                    counter += 1
-                    new_name = f"{original_name} ({counter})"
-                
-                # Update build data with new name
-                build_data["Build Name"] = new_name
-                
-                # Get new file path
-                new_file_path = builds_directory / (self.sanitize_filename(new_name) + ".json")
-                
-                # Save to new file
-                self.save_build_to_file(build_data, new_file_path)
-                
-                # Delete old file if different
-                if old_file_path != new_file_path and old_file_path.exists():
-                    old_file_path.unlink()
-                
-                # Refresh the sidebar
-                self.toggle_sidebar()  # Close
-                self.toggle_sidebar()  # Reopen to refresh
-                
-            except Exception as e:
-                pass
-    
-    def clear_build(self):
-        """Clear all selections"""
-        pass
-    
-    def export_build(self):
-        """Export build to file"""
-        pass
-    
-    def open_settings(self):
-        """Open settings dialog"""
-        pass
-    
-    def show_build_tuning(self):
-        """Show the Build Tuning window"""
-        if self.current_frame:
-            self.current_frame.grid_forget()
-        # Hide sidebar when switching tabs
-        if self.sidebar_visible:
-            self.toggle_sidebar()
-        self.build_tuning_frame.grid(row=0, column=0, sticky="nsew")
-        self.current_frame = self.build_tuning_frame
-        
-        # Update button states
-        self.build_creator_btn.configure(state="normal")
-        self.build_tuning_btn.configure(state="disabled")
-        self.damage_output_btn.configure(state="normal")
-    
-    def show_damage_output(self):
-        """Show the Damage Output window"""
-        if self.current_frame:
-            self.current_frame.grid_forget()
-        # Hide sidebar when switching tabs
-        if self.sidebar_visible:
-            self.toggle_sidebar()
-        self.damage_output_frame.grid(row=0, column=0, sticky="nsew")
-        self.current_frame = self.damage_output_frame
-        
-        # Update button states
-        self.build_creator_btn.configure(state="normal")
-        self.build_tuning_btn.configure(state="normal")
-        self.damage_output_btn.configure(state="disabled")
 
 
 #################### SECTION BREAK ####################

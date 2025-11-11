@@ -12,6 +12,7 @@ This script is designed to be the distributable component of the calculator, and
 __author__ = "iRNHO"
 __contact__ = "Message 'iRNHO' on XBOX or 'irnho' on discord regarding any questions, feedback, bug-reporting etc."
 __discord__ = "https://discord.gg/--------"
+__title__ = "iRNHO's Damage Calculator"
 
 
 #################### SECTION BREAK ####################
@@ -157,7 +158,7 @@ if __name__ == "__main__":
     from platformdirs import user_data_dir
 
     print("Attempting to find a previous installation of the application...")
-    root_directory = Path(user_data_dir("Damage Calculator", "iRNHO"))
+    root_directory = Path(user_data_dir(__title__, __author__))
     root_directory.mkdir(parents=True, exist_ok=True)
     version_file = root_directory / "version.json"
 
