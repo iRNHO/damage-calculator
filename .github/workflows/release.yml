@@ -21,10 +21,10 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: |
+            iRNHO's Spreadsheet.xlsx
             main.py
             requirements.txt
             assets/**
-            data/**
           body: "Automated release from tag ${{ github.ref_name }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

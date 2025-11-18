@@ -17,13 +17,6 @@ __title__ = "iRNHO's Damage Calculator"
 
 #################### SECTION BREAK ####################
 
-##### CONSTANTS #####
-
-FORCE_FRESH_INSTALL = False
-
-
-#################### SECTION BREAK ####################
-
 ##### IMPORT STATEMENTS #####
 
 import sys
@@ -34,6 +27,13 @@ import urllib.request
 import importlib.metadata
 
 from pathlib import Path
+
+
+#################### SECTION BREAK ####################
+
+##### CONSTANTS #####
+
+FORCE_FRESH_INSTALL = False
 
 
 #################### SECTION BREAK ####################
