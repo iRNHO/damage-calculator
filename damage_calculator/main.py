@@ -2,8 +2,11 @@ import json
 import shutil
 import subprocess
 import urllib.request
-from pathlib import Path
+import zipfile
+import io
+import time
 
+from pathlib import Path
 from platformdirs import user_data_dir
 
 
@@ -12,9 +15,11 @@ AUTHOR = "iRNHO"
 REPO = "iRNHO/damage-calculator-data"
 
 
-def safe_request(url):
+# -------------------- Utilities -------------------- #
+
+def safe_request(url, timeout=10):
     try:
-        with urllib.request.urlopen(url, timeout=5) as r:
+        with urllib.request.urlopen(url, timeout=timeout) as r:
             return r.read()
     except Exception:
         return None
@@ -36,6 +41,20 @@ def run_local(root):
     print("Running app...\n")
     subprocess.run(["python", str(app_path)])
 
+
+def download_and_extract_zip(url, extract_to):
+    data = safe_request(url)
+
+    if not data:
+        return False
+
+    with zipfile.ZipFile(io.BytesIO(data)) as z:
+        z.extractall(extract_to)
+
+    return True
+
+
+# -------------------- Main -------------------- #
 
 def main():
     print("Launcher starting...")
@@ -65,24 +84,52 @@ def main():
     if latest_version != local_version:
         print("Updating...\n")
 
-        # Clear install
+        # Small delay to avoid GitHub cache race condition
+        time.sleep(2)
+
+        zip_url = f"https://github.com/{REPO}/archive/refs/tags/{latest_version}.zip"
+
+        print("Downloading full release...")
+
+        success = download_and_extract_zip(zip_url, root)
+
+        if not success:
+            print("Failed to download release")
+            run_local(root)
+            return
+
+        # Find extracted folder (GitHub naming pattern)
+        extracted_folders = list(root.glob(f"*{latest_version.lstrip('v')}*"))
+
+        if not extracted_folders:
+            print("Failed to locate extracted folder")
+            run_local(root)
+            return
+
+        extracted_folder = extracted_folders[0]
+
+        # Clear existing install (except extracted folder)
         for item in root.iterdir():
+            if item == extracted_folder:
+                continue
             if item.is_dir():
                 shutil.rmtree(item)
             else:
                 item.unlink()
 
-        # Download required files
-        for file in ["main.py", "version.txt"]:
-            url = f"https://github.com/{REPO}/releases/latest/download/{file}"
-            data = safe_request(url)
+        # Move new files into root
+        for item in extracted_folder.iterdir():
+            target = root / item.name
+            if target.exists():
+                if target.is_dir():
+                    shutil.rmtree(target)
+                else:
+                    target.unlink()
+            item.rename(target)
 
-            if not data:
-                print(f"Failed to download {file}")
-                run_local(root)
-                return
+        shutil.rmtree(extracted_folder)
 
-            (root / file).write_bytes(data)
+        print("Update complete.\n")
 
     else:
         print("Already up to date.\n")
