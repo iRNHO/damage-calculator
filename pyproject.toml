@@ -1,10 +1,16 @@
 [project]
-name = "damage-calculator"
+name = "irnho-damage-calculator"
 version = "0.1.0"
-description = "iRNHO Damage Calculator Launcher"
-requires-python = ">=3.10"
+description = "Launcher for iRNHO's Damage Calculator"
+authors = [{ name = "iRNHO" }]
+readme = "README.md"
 dependencies = [
-    "platformdirs"
+    "platformdirs",
+    "customtkinter",
+    "pandas",
+    "openpyxl",
+    "pillow",
+    "pywin32; sys_platform == 'win32'",
 ]
 
 [project.scripts]

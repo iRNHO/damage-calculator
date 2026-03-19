@@ -1,6 +1,8 @@
 import json
 import shutil
 import subprocess
+import sys
+import tempfile
 import urllib.request
 import zipfile
 import io
@@ -39,7 +41,7 @@ def run_local(root):
         return
 
     print("Running app...\n")
-    subprocess.run(["python", str(app_path)])
+    subprocess.run([sys.executable, str(app_path)])
 
 
 def download_and_extract_zip(url, extract_to):
@@ -48,15 +50,24 @@ def download_and_extract_zip(url, extract_to):
     if not data:
         return False
 
-    # Clear existing install first
-    for item in extract_to.iterdir():
-        if item.is_dir():
-            shutil.rmtree(item)
-        else:
-            item.unlink()
+    # Extract to a temp dir first; only replace live install on success
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp_path = Path(tmp)
+        try:
+            with zipfile.ZipFile(io.BytesIO(data)) as z:
+                z.extractall(tmp_path)
+        except zipfile.BadZipFile:
+            return False
 
-    with zipfile.ZipFile(io.BytesIO(data)) as z:
-        z.extractall(extract_to)
+        # Clear existing install and move new files in
+        for item in extract_to.iterdir():
+            if item.is_dir():
+                shutil.rmtree(item)
+            else:
+                item.unlink()
+
+        for item in tmp_path.iterdir():
+            shutil.move(str(item), extract_to / item.name)
 
     return True
 
@@ -83,7 +94,12 @@ def main():
         run_local(root)
         return
 
-    latest_version = json.loads(data)["tag_name"]
+    try:
+        latest_version = json.loads(data)["tag_name"]
+    except (json.JSONDecodeError, KeyError):
+        print("Could not parse release info. Running local copy.")
+        run_local(root)
+        return
 
     print(f"Latest version: {latest_version}")
     print(f"Installed version: {local_version}")
