@@ -1,0 +1,8 @@
+pyproject.toml
+damage_calculator/main.py
+damage_calculator.egg-info/PKG-INFO
+damage_calculator.egg-info/SOURCES.txt
+damage_calculator.egg-info/dependency_links.txt
+damage_calculator.egg-info/entry_points.txt
+damage_calculator.egg-info/requires.txt
+damage_calculator.egg-info/top_level.txt

@@ -1,0 +1,15 @@
+[project]
+name = "damage-calculator"
+version = "0.1.0"
+description = "iRNHO Damage Calculator Launcher"
+requires-python = ">=3.10"
+dependencies = [
+    "platformdirs"
+]
+
+[project.scripts]
+damage-calculator = "damage_calculator.main:main"
+
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
