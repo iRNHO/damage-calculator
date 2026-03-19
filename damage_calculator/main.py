@@ -48,6 +48,13 @@ def download_and_extract_zip(url, extract_to):
     if not data:
         return False
 
+    # Clear existing install first
+    for item in extract_to.iterdir():
+        if item.is_dir():
+            shutil.rmtree(item)
+        else:
+            item.unlink()
+
     with zipfile.ZipFile(io.BytesIO(data)) as z:
         z.extractall(extract_to)
 
@@ -84,12 +91,12 @@ def main():
     if latest_version != local_version:
         print("Updating...\n")
 
-        # Small delay to avoid GitHub cache race condition
+        # Avoid GitHub cache race condition
         time.sleep(2)
 
-        zip_url = f"https://github.com/{REPO}/archive/refs/tags/{latest_version}.zip"
+        zip_url = f"https://github.com/{REPO}/releases/latest/download/damage-calculator.zip"
 
-        print("Downloading full release...")
+        print("Downloading release package...")
 
         success = download_and_extract_zip(zip_url, root)
 
@@ -97,37 +104,6 @@ def main():
             print("Failed to download release")
             run_local(root)
             return
-
-        # Find extracted folder (GitHub naming pattern)
-        extracted_folders = list(root.glob(f"*{latest_version.lstrip('v')}*"))
-
-        if not extracted_folders:
-            print("Failed to locate extracted folder")
-            run_local(root)
-            return
-
-        extracted_folder = extracted_folders[0]
-
-        # Clear existing install (except extracted folder)
-        for item in root.iterdir():
-            if item == extracted_folder:
-                continue
-            if item.is_dir():
-                shutil.rmtree(item)
-            else:
-                item.unlink()
-
-        # Move new files into root
-        for item in extracted_folder.iterdir():
-            target = root / item.name
-            if target.exists():
-                if target.is_dir():
-                    shutil.rmtree(target)
-                else:
-                    target.unlink()
-            item.rename(target)
-
-        shutil.rmtree(extracted_folder)
 
         print("Update complete.\n")
 
