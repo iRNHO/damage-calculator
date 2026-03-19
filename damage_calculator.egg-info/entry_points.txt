@@ -1,2 +1,0 @@
-[console_scripts]
-damage-calculator = damage_calculator.main:main
