@@ -1,6 +1,6 @@
 [project]
 name = "irnho-damage-calculator"
-version = "0.1.8"
+version = "0.1.9"
 description = "Launcher for iRNHO's Damage Calculator"
 authors = [{ name = "iRNHO" }]
 readme = "README.md"
