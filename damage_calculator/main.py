@@ -1,133 +1,126 @@
-import json
-import shutil
 import subprocess
 import sys
+import argparse
+import json
 import tempfile
-import urllib.request
 import zipfile
 import io
+import shutil
 import time
 
+from urllib.request import urlopen
 from pathlib import Path
 from platformdirs import user_data_dir
 
+def safe_request(url):
+    """
+    Safely fetches bytes from a URL; returning 'None' if offline or unreachable.
 
-APP_NAME = "Damage Calculator"
-AUTHOR = "iRNHO"
-REPO = "iRNHO/damage-calculator-data"
-
-
-# -------------------- Utilities -------------------- #
-
-def safe_request(url, timeout=10):
+    Parameters:
+        • url (str): The URL to request.
+    
+    """
     try:
-        with urllib.request.urlopen(url, timeout=timeout) as r:
-            return r.read()
+        with urlopen(url, timeout=5) as response:
+            return response.read()
+
     except Exception:
         return None
 
+def run_app(root_directory):
+    """
+    Attempts to run the local installation of the application.
 
-def read_version(path):
-    if not path.exists():
-        return None
-    return path.read_text().strip()
-
-
-def run_local(root):
-    app_path = root / "main.py"
-
-    if not app_path.exists():
-        print("No local install found.")
-        return
-
-    print("Running app...\n")
-    subprocess.run([sys.executable, str(app_path)])
-
-
-def download_and_extract_zip(url, extract_to):
-    data = safe_request(url)
-
-    if not data:
-        return False
-
-    # Extract to a temp dir first; only replace live install on success
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_path = Path(tmp)
-        try:
-            with zipfile.ZipFile(io.BytesIO(data)) as z:
-                z.extractall(tmp_path)
-        except zipfile.BadZipFile:
-            return False
-
-        # Clear existing install and move new files in
-        for item in extract_to.iterdir():
-            if item.is_dir():
-                shutil.rmtree(item)
-            else:
-                item.unlink()
-
-        for item in tmp_path.iterdir():
-            shutil.move(str(item), extract_to / item.name)
-
-    return True
-
-
-# -------------------- Main -------------------- #
+    Parameters:
+        • root_directory (Path): The root directory of the local installation.
+    
+    """
+    subprocess.run([sys.executable, str(root_directory / "main.py")])
 
 def main():
-    print("Launcher starting...")
+    parser = argparse.ArgumentParser(description="iRNHO's Damage Calculator Launcher")
+    parser.add_argument("--force-install", action="store_true", help="Force the launcher to install the latest version of the application.")
+    args = parser.parse_args()
 
-    root = Path(user_data_dir(APP_NAME, AUTHOR))
-    root.mkdir(parents=True, exist_ok=True)
+    print("Attempting to find a local installation of the application...")
+    root_directory = Path(user_data_dir("iRNHO's Damage Calculator", "iRNHO"))
+    root_directory.mkdir(parents=True, exist_ok=True)
+    version_path = root_directory / "version.txt"
 
-    print(f"Install location: {root}")
-
-    version_file = root / "version.txt"
-    local_version = read_version(version_file)
-
-    print("Checking GitHub for latest version...")
-
-    data = safe_request(f"https://api.github.com/repos/{REPO}/releases/latest")
-
-    if not data:
-        print("Offline mode.")
-        run_local(root)
-        return
-
-    try:
-        latest_version = json.loads(data)["tag_name"]
-    except (json.JSONDecodeError, KeyError):
-        print("Could not parse release info. Running local copy.")
-        run_local(root)
-        return
-
-    print(f"Latest version: {latest_version}")
-    print(f"Installed version: {local_version}")
-
-    if latest_version != local_version:
-        print("Updating...\n")
-
-        # Avoid GitHub cache race condition
-        time.sleep(2)
-
-        zip_url = f"https://github.com/{REPO}/releases/latest/download/damage-calculator.zip"
-
-        print("Downloading release package...")
-
-        success = download_and_extract_zip(zip_url, root)
-
-        if not success:
-            print("Failed to download release")
-            run_local(root)
-            return
-
-        print("Update complete.\n")
+    if version_path.exists():
+        local_version = version_path.read_text()
+        print(f"Successfully found a local installation of the application at version '{local_version}'.\n")
 
     else:
-        print("Already up to date.\n")
+        local_version = None
+        print("Failed to find local installation of the application.\n")
 
-    run_local(root)
+    print("Attempting to fetch the latest release information from GitHub...")
+    data_bytes = safe_request("https://api.github.com/repos/iRNHO/damage-calculator-data/releases/latest")
 
+    if not data_bytes:
+        if local_version:
+            print("Failed to reach the GitHub API; attempting to launch a previous installation of the application...")
+            run_app(root_directory)
+            return
+
+        print("Failed to reach the GitHub API; please check your internet connection and try again.")
+        return
+    
+    try:
+        latest_version = json.loads(data_bytes)["tag_name"]
+
+    except (json.JSONDecodeError, KeyError):
+        if local_version:
+            print("Failed to parse the latest release information from GitHub; attempting to launch a previous installation of the application...")
+            run_app(root_directory)
+            return
+
+        print("Failed to parse the latest release information from GitHub; please try again later.")
+        return
+
+    print(f"Successfully reached the GitHub API; latest version is '{latest_version}'.\n")
+
+    if latest_version != local_version or args.force_install:
+        print("Attempting to download the application data at the latest version...")
+
+        for attempt in range(4):
+            if attempt == 3:
+                print("Failed to download the application data after multiple attempts; please check your internet connection and try again.")
+                return
+
+            data_bytes = safe_request(f"https://github.com/iRNHO/damage-calculator-data/releases/download/{latest_version}/data.zip")
+
+            if data_bytes:
+                with tempfile.TemporaryDirectory() as temp_directory:
+                    temp_path = Path(temp_directory)
+                    try:
+                        with zipfile.ZipFile(io.BytesIO(data_bytes)) as zip_file:
+                            zip_file.extractall(temp_path)
+                    except zipfile.BadZipFile:
+                        continue
+
+                    for item in root_directory.iterdir():
+                        if item.is_dir():
+                            shutil.rmtree(item)
+                        else:
+                            item.unlink()
+
+                    for item in temp_path.iterdir():
+                        shutil.move(str(item), root_directory / item.name)
+
+                version_path.write_text(latest_version)
+                print("Successfully downloaded the application data and updated the local installation.\n")
+                break
+
+            time.sleep(2 ** attempt)
+
+        print("Attempting to launch the application...")
+
+    else:
+        print("The local installation is already up to date; attempting to launch the application...")
+        
+    run_app(root_directory)
 
 if __name__ == "__main__":
     main()
