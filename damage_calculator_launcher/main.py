@@ -13,7 +13,7 @@ from packaging.version import Version
 from pathlib import Path
 from platformdirs import user_data_dir
 
-LAUNCHER_VERSION = "0.2.1"
+LAUNCHER_VERSION = "0.2.0"
 
 def safe_request(url):
     """

@@ -14,12 +14,12 @@ jobs:
 
     steps:
       - name: checkout-repository
-      - uses: actions/checkout@v6
+        uses: actions/checkout@v6
 
       - name: setup-python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: '3.11'
+          python-version: '3.14'
 
       - name: install-uv
         run: pip install uv
