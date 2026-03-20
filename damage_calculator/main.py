@@ -1,7 +1,7 @@
+import json
+import argparse
 import subprocess
 import sys
-import argparse
-import json
 import tempfile
 import zipfile
 import io
@@ -9,19 +9,11 @@ import shutil
 import time
 
 from urllib.request import urlopen
+from packaging.version import Version
 from pathlib import Path
 from platformdirs import user_data_dir
 
-LAUNCHER_VERSION = "0.1.5"
-
-def get_latest_launcher_version():
-    url = "https://pypi.org/pypi/irnho-damage-calculator/json"
-    try:
-        with urlopen(url, timeout=5) as response:
-            data = json.loads(response.read())
-        return data["info"]["version"]
-    except Exception:
-        return None
+LAUNCHER_VERSION = "0.1.7"
 
 def safe_request(url):
     """
@@ -43,24 +35,25 @@ def main():
 
     if release_data:
         latest_launcher_version = json.loads(release_data)["info"]["version"]
-
-        if LAUNCHER_VERSION != latest_launcher_version:
-            print(f"This launcher is outdated (v{LAUNCHER_VERSION} vs v{latest_launcher_version}). Please reinstall the laucher using:\n\nuv tool install --reinstall irnho-damage-calculator\n")
+        if Version(LAUNCHER_VERSION) < Version(latest_launcher_version):
+            print(f"This launcher is outdated (v{LAUNCHER_VERSION} vs v{latest_launcher_version}). Please reinstall the launcher using:\n\nuv tool install --reinstall irnho-damage-calculator\n")
             return
 
     parser = argparse.ArgumentParser(
         usage="damage-calculator [-h] [-f]",
-        description="iRNHO's Damage Calculator Launcher"
-    )
-    parser.add_argument(
-        "-f", "--force",
-        action="store_true",
-        help="Force the launcher to install the latest version of the application."
+        description="iRNHO's Damage Calculator Launcher",
+        epilog="The launcher will attempt to find a local installation of the application, check for the latest version on GitHub, and update the local installation if necessary before launching the application.",
+        add_help=False        
     )
     parser.add_argument(
         "-h", "--help",
         action="help",
         help="Show this help message and exit."
+    )
+    parser.add_argument(
+        "-f", "--force",
+        action="store_true",
+        help="Force the launcher to install the latest version of the application."
     )
     args = parser.parse_args()
 
@@ -89,21 +82,10 @@ def main():
         print("Failed to reach the GitHub API; please check your internet connection and try again.")
         return
     
-    try:
-        latest_version = json.loads(release_data)["tag_name"]
-
-    except (json.JSONDecodeError, KeyError):
-        if local_version:
-            print("Failed to parse the latest release information from GitHub; attempting to launch a previous installation of the application...")
-            subprocess.run([sys.executable, str(root_directory / "main.py")])
-            return
-
-        print("Failed to parse the latest release information from GitHub; please try again later.")
-        return
-
+    latest_version = json.loads(release_data)["tag_name"]
     print(f"Successfully reached the GitHub API; latest version is '{latest_version}'.\n")
 
-    if latest_version != local_version or args.force_install:
+    if Version(local_version) < Version(latest_version) or args.force:
         print("Attempting to download the application data at the latest version...")
 
         for attempt in range(4):
@@ -111,13 +93,13 @@ def main():
                 print("Failed to download the application data after multiple attempts; please check your internet connection and try again.")
                 return
 
-            data_bytes = safe_request(f"https://github.com/iRNHO/damage-calculator-data/releases/download/{latest_version}/data.zip")
+            application_data = safe_request(f"https://github.com/iRNHO/damage-calculator-data/releases/download/{latest_version}/data.zip")
 
-            if data_bytes:
+            if application_data:
                 with tempfile.TemporaryDirectory() as temp_directory:
                     temp_path = Path(temp_directory)
                     try:
-                        with zipfile.ZipFile(io.BytesIO(data_bytes)) as zip_file:
+                        with zipfile.ZipFile(io.BytesIO(application_data)) as zip_file:
                             zip_file.extractall(temp_path)
                     except zipfile.BadZipFile:
                         continue
