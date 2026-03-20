@@ -1,24 +1,24 @@
-[project]
-name = "irnho-damage-calculator"
-version = "0.1.9"
-description = "Launcher for iRNHO's Damage Calculator"
-authors = [{ name = "iRNHO" }]
-readme = "README.md"
-dependencies = [
-    "platformdirs",
-    "customtkinter",
-    "pandas",
-    "openpyxl",
-    "pillow",
-    "pywin32; sys_platform == 'win32'",
-]
-
-[project.scripts]
-damage-calculator = "damage_calculator.main:main"
-
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
+[project]
+name = "irnho-damage-calculator"
+version = "0.2.0"
+description = "iRNHO's Damage Calculator Launcher"
+readme = "README.md"
+dependencies = [
+    "customtkinter",
+    "openpyxl",
+    "packaging",
+    "pandas",
+    "pillow",
+    "platformdirs",
+    "pywin32; sys_platform == 'win32'",
+]
+
+[project.scripts]
+dcl = "damage_calculator_launcher.main:main"
+
 [tool.setuptools.packages.find]
-include = ["damage_calculator"]
+include = ["damage_calculator_launcher"]

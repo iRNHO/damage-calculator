@@ -1,30 +1,35 @@
-# iRNHO's Damage Calculator
+# iRNHO's Damage Calculator Launcher
 
-A launcher that automatically installs and keeps the Damage Calculator up to date.
+The launcher will attempt to find a local installation of the application, check for the latest version on GitHub, and update the local installation if necessary before launching the application.
+
+## Prerequisites
+
+You must have the [uv](https://docs.astral.sh/uv/getting-started/installation/) package manager in order to install the launcher. Use the link and follow the instructions for your platform, which should amount to a single one-time command. 
 
 ## Installation
 
-You do **not** need Python installed. You only need [uv](https://docs.astral.sh/uv/getting-started/installation/).
-
-**Install uv** (run once):
-
-- **Windows:** `winget install --id=astral-sh.uv -e` or download from [astral.sh/uv](https://docs.astral.sh/uv/getting-started/installation/)
-- **macOS/Linux:** `curl -LsSf https://astral.sh/uv/install.sh | sh`
-
-**Install the calculator** (run once):
-
+One-time command:
 ```
 uv tool install irnho-damage-calculator
 ```
 
-## Running
 
+## Usage
+
+To run the launcher, use the command:
 ```
-damage-calculator
+dcl
 ```
 
-On first launch it will download the latest version automatically. Subsequent launches check for updates and start immediately if already up to date.
+## Parameters (Optional)
 
-## Updating
+- `-h`, `--help`: Show usage and available options.
 
-Updates are applied automatically on launch. No manual steps required.
+	```
+	dcl -h
+	```
+- `-f`, `--force`: Force a fresh installation of the application regardless of local version.
+
+	```
+	dcl -f
+	```
