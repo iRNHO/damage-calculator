@@ -12,12 +12,23 @@ from urllib.request import urlopen
 from pathlib import Path
 from platformdirs import user_data_dir
 
+LAUNCHER_VERSION = "0.1.5"
+
+def get_latest_launcher_version():
+    url = "https://pypi.org/pypi/irnho-damage-calculator/json"
+    try:
+        with urlopen(url, timeout=5) as response:
+            data = json.loads(response.read())
+        return data["info"]["version"]
+    except Exception:
+        return None
+
 def safe_request(url):
     """
-    Safely fetches bytes from a URL; returning 'None' if offline or unreachable.
+    Safely fetches data from a URL; returning 'None' if offline or unreachable.
 
     Parameters:
-        • url (str): The URL to request.
+        • url (str): The URL to fetch data from.
     
     """
     try:
@@ -27,19 +38,30 @@ def safe_request(url):
     except Exception:
         return None
 
-def run_app(root_directory):
-    """
-    Attempts to run the local installation of the application.
-
-    Parameters:
-        • root_directory (Path): The root directory of the local installation.
-    
-    """
-    subprocess.run([sys.executable, str(root_directory / "main.py")])
-
 def main():
-    parser = argparse.ArgumentParser(description="iRNHO's Damage Calculator Launcher")
-    parser.add_argument("--force-install", action="store_true", help="Force the launcher to install the latest version of the application.")
+    release_data = safe_request("https://pypi.org/pypi/irnho-damage-calculator/json")
+
+    if release_data:
+        latest_launcher_version = json.loads(release_data)["info"]["version"]
+
+        if LAUNCHER_VERSION != latest_launcher_version:
+            print(f"This launcher is outdated (v{LAUNCHER_VERSION} vs v{latest_launcher_version}). Please reinstall the laucher using:\n\nuv tool install --reinstall irnho-damage-calculator\n")
+            return
+
+    parser = argparse.ArgumentParser(
+        usage="damage-calculator [-h] [-f]",
+        description="iRNHO's Damage Calculator Launcher"
+    )
+    parser.add_argument(
+        "-f", "--force",
+        action="store_true",
+        help="Force the launcher to install the latest version of the application."
+    )
+    parser.add_argument(
+        "-h", "--help",
+        action="help",
+        help="Show this help message and exit."
+    )
     args = parser.parse_args()
 
     print("Attempting to find a local installation of the application...")
@@ -56,24 +78,24 @@ def main():
         print("Failed to find local installation of the application.\n")
 
     print("Attempting to fetch the latest release information from GitHub...")
-    data_bytes = safe_request("https://api.github.com/repos/iRNHO/damage-calculator-data/releases/latest")
+    release_data = safe_request("https://api.github.com/repos/iRNHO/damage-calculator-data/releases/latest")
 
-    if not data_bytes:
+    if not release_data:
         if local_version:
             print("Failed to reach the GitHub API; attempting to launch a previous installation of the application...")
-            run_app(root_directory)
+            subprocess.run([sys.executable, str(root_directory / "main.py")])
             return
 
         print("Failed to reach the GitHub API; please check your internet connection and try again.")
         return
     
     try:
-        latest_version = json.loads(data_bytes)["tag_name"]
+        latest_version = json.loads(release_data)["tag_name"]
 
     except (json.JSONDecodeError, KeyError):
         if local_version:
             print("Failed to parse the latest release information from GitHub; attempting to launch a previous installation of the application...")
-            run_app(root_directory)
+            subprocess.run([sys.executable, str(root_directory / "main.py")])
             return
 
         print("Failed to parse the latest release information from GitHub; please try again later.")
@@ -120,7 +142,7 @@ def main():
     else:
         print("The local installation is already up to date; attempting to launch the application...")
         
-    run_app(root_directory)
+    subprocess.run([sys.executable, str(root_directory / "main.py")])
 
 if __name__ == "__main__":
     main()
