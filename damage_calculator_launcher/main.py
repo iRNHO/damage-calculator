@@ -13,7 +13,7 @@ from packaging.version import Version
 from pathlib import Path
 from platformdirs import user_data_dir
 
-LAUNCHER_VERSION = "0.2.0"
+LAUNCHER_VERSION = "0.2.1"
 
 def safe_request(url):
     """
@@ -40,7 +40,7 @@ def main():
             return
 
     parser = argparse.ArgumentParser(
-        usage="damage-calculator [-h] [-f]",
+        usage="dcl [-h] [-f]",
         description="iRNHO's Damage Calculator Launcher",
         epilog="The launcher will attempt to find a local installation of the application, check for the latest version on GitHub, and update the local installation if necessary before launching the application.",
         add_help=False        
@@ -51,9 +51,9 @@ def main():
         help="Show this help message and exit."
     )
     parser.add_argument(
-        "-f", "--force",
+        "-f", "--factory-reset",
         action="store_true",
-        help="Force the launcher to install the latest version of the application."
+        help="Wipe all application data (including build data if present) and perform a clean installation."
     )
     args = parser.parse_args()
 
@@ -68,24 +68,24 @@ def main():
 
     else:
         local_version = None
-        print("Failed to find local installation of the application.\n")
+        print("Failed to find a local installation of the application.\n")
 
     print("Attempting to fetch the latest release information from GitHub...")
     release_data = safe_request("https://api.github.com/repos/iRNHO/damage-calculator-data/releases/latest")
 
     if not release_data:
         if local_version:
-            print("Failed to reach the GitHub API; attempting to launch a previous installation of the application...")
+            print("Failed to fetch the latest release information; attempting to launch the local installation of the application...")
             subprocess.run([sys.executable, str(root_directory / "main.py")])
             return
 
-        print("Failed to reach the GitHub API; please check your internet connection and try again.")
+        print("Failed to fetch the latest release information; please check your internet connection and try again.")
         return
     
     latest_version = json.loads(release_data)["tag_name"]
-    print(f"Successfully reached the GitHub API; latest version is '{latest_version}'.\n")
+    print(f"Successfully fetched the latest release information; the latest version is '{latest_version}'.\n")
 
-    if Version(local_version) < Version(latest_version) or args.force:
+    if not local_version or Version(local_version) < Version(latest_version) or args.factory_reset:
         print("Attempting to download the application data at the latest version...")
 
         for attempt in range(4):
@@ -104,17 +104,23 @@ def main():
                     except zipfile.BadZipFile:
                         continue
 
-                    for item in root_directory.iterdir():
-                        if item.is_dir():
-                            shutil.rmtree(item)
-                        else:
-                            item.unlink()
-
-                    for item in temp_path.iterdir():
-                        shutil.move(str(item), root_directory / item.name)
+                    if args.factory_reset:
+                        shutil.rmtree(root_directory)
+                        root_directory.mkdir(parents=True, exist_ok=True)
+                        for item in temp_path.iterdir():
+                            shutil.move(str(item), root_directory / item.name)
+                    else:
+                        for item in temp_path.iterdir():
+                            target = root_directory / item.name
+                            if target.exists():
+                                if target.is_dir():
+                                    shutil.rmtree(target)
+                                else:
+                                    target.unlink()
+                            shutil.move(str(item), target)
 
                 version_path.write_text(latest_version)
-                print("Successfully downloaded the application data and updated the local installation.\n")
+                print(f"Successfully downloaded the application data and {"reset the" if args.factory_reset else "updated the" if local_version else "created a"} local installation.\n")
                 break
 
             time.sleep(2 ** attempt)
