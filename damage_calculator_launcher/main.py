@@ -13,7 +13,7 @@ from packaging.version import Version
 from pathlib import Path
 from platformdirs import user_data_dir
 
-LAUNCHER_VERSION = "0.2.1"
+LAUNCHER_VERSION = "0.3.0"
 
 def safe_request(url):
     """
@@ -36,13 +36,12 @@ def main():
     if release_data:
         latest_launcher_version = json.loads(release_data)["info"]["version"]
         if Version(LAUNCHER_VERSION) < Version(latest_launcher_version):
-            print(f"This launcher is outdated (v{LAUNCHER_VERSION} vs v{latest_launcher_version}). Please reinstall the launcher using:\n\nuv tool install --reinstall irnho-damage-calculator\n")
+            print(f"This launcher version is outdated (v{LAUNCHER_VERSION} vs v{latest_launcher_version}); please reinstall the launcher using:\n\nuv tool install --reinstall irnho-damage-calculator\n")
             return
 
     parser = argparse.ArgumentParser(
         usage="dcl [-h] [-f]",
-        description="iRNHO's Damage Calculator Launcher",
-        epilog="The launcher will attempt to find a local installation of the application, check for the latest version on GitHub, and update the local installation if necessary before launching the application.",
+        description=f"iRNHO's Damage Calculator Launcher (v{LAUNCHER_VERSION})",
         add_help=False        
     )
     parser.add_argument(
@@ -53,7 +52,7 @@ def main():
     parser.add_argument(
         "-f", "--factory-reset",
         action="store_true",
-        help="Wipe all application data (including build data if present) and perform a clean installation."
+        help="Wipe all application data and perform a clean installation from scratch."
     )
     args = parser.parse_args()
 
