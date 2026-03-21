@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "irnho-damage-calculator"
-version = "0.3.1"
+version = "0.3.2"
 description = "iRNHO's Damage Calculator Launcher"
 readme = "README.md"
 license = {file = "LICENSE"}

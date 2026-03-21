@@ -35,7 +35,7 @@ def main():
     if release_data:
         latest_launcher_version = json.loads(release_data)["info"]["version"]
         if Version(__version__) < Version(latest_launcher_version):
-            print(f"This launcher version is outdated (v{__version__} vs v{latest_launcher_version}); please reinstall the launcher using:\n\nuv tool install --reinstall irnho-damage-calculator\n")
+            print(f"This launcher version is outdated (v{__version__} vs v{latest_launcher_version}). Please update the launcher using:\n\nuv tool install irnho-damage-calculator=={latest_launcher_version}\n")
             return
 
     parser = argparse.ArgumentParser(
