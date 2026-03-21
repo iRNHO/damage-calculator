@@ -8,12 +8,11 @@ import io
 import shutil
 import time
 
+from . import __version__
 from urllib.request import urlopen
 from packaging.version import Version
 from pathlib import Path
 from platformdirs import user_data_dir
-
-LAUNCHER_VERSION = "0.3.0"
 
 def safe_request(url):
     """
@@ -35,13 +34,13 @@ def main():
 
     if release_data:
         latest_launcher_version = json.loads(release_data)["info"]["version"]
-        if Version(LAUNCHER_VERSION) < Version(latest_launcher_version):
-            print(f"This launcher version is outdated (v{LAUNCHER_VERSION} vs v{latest_launcher_version}); please reinstall the launcher using:\n\nuv tool install --reinstall irnho-damage-calculator\n")
+        if Version(__version__) < Version(latest_launcher_version):
+            print(f"This launcher version is outdated (v{__version__} vs v{latest_launcher_version}); please reinstall the launcher using:\n\nuv tool install --reinstall irnho-damage-calculator\n")
             return
 
     parser = argparse.ArgumentParser(
         usage="dcl [-h] [-f]",
-        description=f"iRNHO's Damage Calculator Launcher (v{LAUNCHER_VERSION})",
+        description=f"iRNHO's Damage Calculator Launcher (v{__version__})",
         add_help=False        
     )
     parser.add_argument(

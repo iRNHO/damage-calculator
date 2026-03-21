@@ -24,7 +24,7 @@ new_version = input("Enter new release version (e.g. 'v1.2.3'): ").strip()
 commit_message = input("Enter commit message: ").strip()
 
 change_line("pyproject.toml", "version = \"", f"version = \"{new_version[1:]}\"")
-change_line("damage_calculator_launcher/main.py", "LAUNCHER_VERSION = \"", f"LAUNCHER_VERSION = \"{new_version[1:]}\"")
+change_line("damage_calculator_launcher/__init__.py", "__version__ = \"", f"__version__ = \"{new_version[1:]}\"")
 
 for args in [
     ["add", "-A"],
