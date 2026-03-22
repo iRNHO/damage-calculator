@@ -35,7 +35,7 @@ def main():
     if release_data:
         latest_launcher_version = json.loads(release_data)["info"]["version"]
         if Version(__version__) < Version(latest_launcher_version):
-            print(f"This launcher version is outdated (v{__version__} vs v{latest_launcher_version}); please reinstall the launcher using:\n\nuv tool install --reinstall irnho-damage-calculator\n")
+            print(f"This launcher version (v{__version__}) is outdated; please upgrade to the latest version (v{latest_launcher_version}) using:\n\nuv tool install irnho-damage-calculator --reinstall\n\nIn the unlikely event that you are particularly early to this update, it may be necessary to run the command a second time if uv fails to upgrade the launcher to v{latest_launcher_version} after the first attempt.")
             return
 
     parser = argparse.ArgumentParser(
