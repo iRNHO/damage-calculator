@@ -30,13 +30,30 @@ def safe_request(url):
         return None
 
 def main():
-    release_data = safe_request("https://pypi.org/pypi/irnho-damage-calculator/json")
+    print("[DEBUG] Querying PyPI for release data (first attempt)...")
+    release_data_1 = safe_request("https://pypi.org/pypi/irnho-damage-calculator/json")
+    print(f"[DEBUG] First query result: {bool(release_data_1)}")
+    if release_data_1:
+        latest_launcher_version_1 = json.loads(release_data_1)["info"]["version"]
+        print(f"[DEBUG] First query version: {latest_launcher_version_1}")
+    else:
+        latest_launcher_version_1 = None
+        print("[DEBUG] First query failed.")
 
-    if release_data:
-        latest_launcher_version = json.loads(release_data)["info"]["version"]
-        if Version(__version__) < Version(latest_launcher_version):
-            print(f"This launcher version (v{__version__}) is outdated; please upgrade to the latest version (v{latest_launcher_version}) using:\n\nuv tool install irnho-damage-calculator --reinstall\n\nPlease note that in the unlikely event you are running this within a few minutes of the release, it may be necessary to run the command a second time if uv fails to install the launcher at v{latest_launcher_version} during the first attempt.")
-            return
+    print("[DEBUG] Querying PyPI for release data (second attempt)...")
+    release_data_2 = safe_request("https://pypi.org/pypi/irnho-damage-calculator/json")
+    print(f"[DEBUG] Second query result: {bool(release_data_2)}")
+    if release_data_2:
+        latest_launcher_version_2 = json.loads(release_data_2)["info"]["version"]
+        print(f"[DEBUG] Second query version: {latest_launcher_version_2}")
+    else:
+        latest_launcher_version_2 = None
+        print("[DEBUG] Second query failed.")
+
+    # Use the second query for the actual version check
+    if latest_launcher_version_2 and Version(__version__) < Version(latest_launcher_version_2):
+        print(f"This launcher version (v{__version__}) is outdated; please upgrade to the latest version (v{latest_launcher_version_2}) using:\n\nuv tool install irnho-damage-calculator --reinstall\n\nPlease note that in the unlikely event you are running this within a few minutes of the release, it may be necessary to run the command a second time if uv fails to install the launcher at v{latest_launcher_version_2} during the first attempt.")
+        return
 
     parser = argparse.ArgumentParser(
         usage="dcl [-h] [-f]",
